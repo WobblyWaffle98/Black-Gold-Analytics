@@ -31,18 +31,19 @@ if os.path.exists(file_path):
 
     # Display entries
     for _, row in filtered_df.iterrows():
-        col1, col2, col3 = st.columns([3, 1, 2])
+        col1, col2, col3 = st.columns([3, 1, 4])
 
         with col1:
             st.markdown(f"**{row['Title']}**")
-        with col2:
-            st.markdown(f"**Sentiment:**<br>{row['Sentiment V2']}", unsafe_allow_html=True)
-        with col3:
             if pd.notna(row['Link']):
                 st.markdown(f"[🔗 Link]({row['Link']})")
 
-        # Reasoning full-width
-        st.markdown(f"**Reasoning:** {row['Reasoning']}")
+        with col2:
+            st.markdown(f"**Sentiment:**<br>{row['Sentiment V2']}", unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"**Reasoning:**<br>{row['Reasoning']}", unsafe_allow_html=True)
+
         st.markdown("---")
 
 else:
