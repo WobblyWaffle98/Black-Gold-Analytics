@@ -15,7 +15,7 @@ file_path = "sentiment_v2_with_reasoning.xlsx"
 # Define stop words to exclude from top words
 stop_words = set([
     'the', 'and', 'is', 'to', 'in', 'of', 'for', 'on', 'with', 'at', 'by', 'an',
-    'be', 'this', 'that', 'from', 'as', 'are', 'it', 'was', 'or', 'which',
+    'be', 'this', 'that', 'from', 'as', 'are', 'it', 'was', 'or', 'which','a','because','oil','sentiment'
     # Add more words to exclude here
 ])
 
