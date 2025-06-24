@@ -24,6 +24,14 @@ if os.path.exists(file_path):
         min_value=min_date,
         max_value=max_date
     )
+    # Checkbox to exclude non Bullish/Bearish rows
+    filter_sentiments = st.checkbox(
+        "Show only Bullish and Bearish rows", value=True
+    )
+
+    # Apply filtering if checked
+    if filter_sentiments:
+        df = df[df['Sentiment V2'].isin(['Bullish', 'Bearish'])]
 
     # Function to create Plotly donut chart
     def plotly_donut(sentiments, title):
