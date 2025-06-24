@@ -27,7 +27,7 @@ if os.path.exists(file_path):
 
     # Filter data
     mask = (df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))
-    filtered_df = df.loc[mask][['Title', 'Sentiment V2', 'Link', 'Reasoning']]
+    filtered_df = df.loc[mask][['Date', 'Title', 'Sentiment V2', 'Link', 'Reasoning']]
 
     # Header row
     col1, col2, col3 = st.columns([3, 1, 4])
@@ -46,6 +46,7 @@ if os.path.exists(file_path):
 
         with col1:
             st.markdown(f"**{row['Title']}**")
+            st.markdown(f"<small>{row['Date'].strftime('%b %d, %Y')}</small>", unsafe_allow_html=True)
             if pd.notna(row['Link']):
                 st.markdown(f"[🔗 Link]({row['Link']})")
 
