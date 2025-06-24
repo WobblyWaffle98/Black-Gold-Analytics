@@ -53,17 +53,20 @@ if os.path.exists(file_path):
 
     # Prepare filtered datasets
     df_selected = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+    df_1d = df[df['Date'] >= datetime.now() - timedelta(days=1)]
     df_7d = df[df['Date'] >= datetime.now() - timedelta(days=7)]
     df_30d = df[df['Date'] >= datetime.now() - timedelta(days=30)]
 
     st.subheader("📊 Sentiment Distribution")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4= st.columns(4)
     with col1:
         st.plotly_chart(plotly_donut(df_selected['Sentiment V2'], "Selected Range"), use_container_width=True)
     with col2:
-        st.plotly_chart(plotly_donut(df_7d['Sentiment V2'], "Last 7 Days"), use_container_width=True)
+        st.plotly_chart(plotly_donut(df_1d['Sentiment V2'], "Last 1 Days"), use_container_width=True)
     with col3:
+        st.plotly_chart(plotly_donut(df_7d['Sentiment V2'], "Last 7 Days"), use_container_width=True)
+    with col4:
         st.plotly_chart(plotly_donut(df_30d['Sentiment V2'], "Last 30 Days"), use_container_width=True)
 
     st.markdown("---")
