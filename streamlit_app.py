@@ -12,9 +12,10 @@ uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
 if uploaded_file:
     # Read Excel data
     df = pd.read_excel(uploaded_file)
+    
 
-    # Ensure correct datetime format
-    df['Date'] = pd.to_datetime(df['Date'])
+    # Convert 'Date' to pandas datetime if not already
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
     # Date slider to filter data
     min_date = df['Date'].min()
@@ -22,8 +23,8 @@ if uploaded_file:
     selected_date_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date,
                                     value=(min_date, max_date), format="YYYY-MM-DD")
 
-    # Filter data
-    mask = (df['Date'] >= selected_date_range[0]) & (df['Date'] <= selected_date_range[1])
+    # Convert dates for filtering
+    mask = (df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))
     filtered_df = df.loc[mask]
 
     # Display filtered data
