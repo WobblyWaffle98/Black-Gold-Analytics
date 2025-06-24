@@ -17,6 +17,9 @@ if uploaded_file:
     # Convert 'Date' to pandas datetime if not already
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
+    # Date slider to filter data
+    min_date = df['Date'].min()
+    max_date = df['Date'].max()
     # Slider returns datetime.date, so convert to datetime64 for filtering
     start_date, end_date = st.slider(
         "Select Date Range",
