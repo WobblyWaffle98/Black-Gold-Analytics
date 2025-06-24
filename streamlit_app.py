@@ -31,7 +31,7 @@ if os.path.exists(file_path):
 
     # Apply filtering if checked
     if filter_sentiments:
-        df = df[df['Sentiment V2'].isin(['Bullish', 'Bearish'])]
+        df = df[df['Sentiment V2'].isin(['bullish', 'bearish'])]
 
     # Function to create Plotly donut chart
     def plotly_donut(sentiments, title):
