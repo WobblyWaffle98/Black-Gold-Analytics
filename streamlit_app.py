@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 st.title("🛢️ Black Gold Analytics - Sentiment Analysis")
@@ -9,7 +10,6 @@ st.title("🛢️ Black Gold Analytics - Sentiment Analysis")
 # Define file path
 file_path = "sentiment_v2_with_reasoning.xlsx"
 
-# Load data
 if os.path.exists(file_path):
     df = pd.read_excel(file_path)
     df['Date'] = pd.to_datetime(df['Date'])
@@ -25,11 +25,52 @@ if os.path.exists(file_path):
         max_value=max_date
     )
 
-    # Filter data
-    mask = (df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))
-    filtered_df = df.loc[mask][['Date', 'Title', 'Sentiment V2', 'Link', 'Reasoning']]
+    # Function to create Plotly donut chart
+    def plotly_donut(sentiments, title):
+        counts = sentiments.value_counts()
+        labels = counts.index.tolist()
+        values = counts.tolist()
 
-    # Header row
+        # Define colors (green for Bullish, red for Bearish, gray for others)
+        color_map = {
+            'Bullish': '#2ecc71',
+            'Bearish': '#e74c3c',
+            'Neutral': '#95a5a6'
+        }
+        colors = [color_map.get(label, '#95a5a6') for label in labels]
+
+        fig = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.5,
+            marker_colors=colors,
+            textinfo='label+percent',
+            hoverinfo='label+value'
+        )])
+        fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0))
+        return fig
+
+    # Prepare filtered datasets
+    df_selected = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+    df_7d = df[df['Date'] >= datetime.now() - timedelta(days=7)]
+    df_30d = df[df['Date'] >= datetime.now() - timedelta(days=30)]
+
+    st.subheader("📊 Sentiment Distribution")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.plotly_chart(plotly_donut(df_selected['Sentiment V2'], "Selected Range"), use_container_width=True)
+    with col2:
+        st.plotly_chart(plotly_donut(df_7d['Sentiment V2'], "Last 7 Days"), use_container_width=True)
+    with col3:
+        st.plotly_chart(plotly_donut(df_30d['Sentiment V2'], "Last 30 Days"), use_container_width=True)
+
+    st.markdown("---")
+
+    # Filtered table data
+    filtered_df = df_selected[['Date', 'Title', 'Sentiment V2', 'Link', 'Reasoning']]
+
+    # Table headers
     col1, col2, col3 = st.columns([3, 1, 4])
     with col1:
         st.markdown("### 📰 Title & Link")
@@ -43,19 +84,15 @@ if os.path.exists(file_path):
     # Display entries
     for _, row in filtered_df.iterrows():
         col1, col2, col3 = st.columns([3, 1, 4])
-
         with col1:
             st.markdown(f"**{row['Title']}**")
             st.markdown(f"<small>{row['Date'].strftime('%b %d, %Y')}</small>", unsafe_allow_html=True)
             if pd.notna(row['Link']):
                 st.markdown(f"[🔗 Link]({row['Link']})")
-
         with col2:
             st.markdown(f"{row['Sentiment V2']}")
-
         with col3:
             st.markdown(f"{row['Reasoning']}")
-
         st.markdown("---")
 
 else:
