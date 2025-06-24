@@ -17,11 +17,14 @@ if uploaded_file:
     # Convert 'Date' to pandas datetime if not already
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
-    # Date slider to filter data
-    min_date = df['Date'].min()
-    max_date = df['Date'].max()
-    selected_date_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date,
-                                    value=(min_date, max_date), format="YYYY-MM-DD")
+    # Slider returns datetime.date, so convert to datetime64 for filtering
+    start_date, end_date = st.slider(
+        "Select Date Range",
+        min_value=min_date,
+        max_value=max_date,
+        value=(min_date, max_date),
+        format="YYYY-MM-DD"
+    )
 
     # Convert dates for filtering
     mask = (df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))
