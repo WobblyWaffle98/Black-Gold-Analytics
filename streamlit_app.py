@@ -2,25 +2,27 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
+import os
 
 st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 st.title("🛢️ Black Gold Analytics - Sentiment Analysis")
 
-# Upload Excel file
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
+# Define the file path (same directory)
+file_path = "sentiment_v2_with_reasoning.xlsx"
 
-if uploaded_file:
+# Check if file exists
+if os.path.exists(file_path):
     # Read Excel data
-    df = pd.read_excel(uploaded_file)
-    
+    df = pd.read_excel(file_path)
 
-    # Convert 'Date' to pandas datetime if not already
+    # Validate and clean date column
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df = df.dropna(subset=['Date'])  # Drop rows where date conversion failed
 
-    # Date slider to filter data
+    # Filter using date slider
     min_date = df['Date'].min()
     max_date = df['Date'].max()
-    # Slider returns datetime.date, so convert to datetime64 for filtering
+
     start_date, end_date = st.slider(
         "Select Date Range",
         min_value=min_date,
@@ -29,15 +31,15 @@ if uploaded_file:
         format="YYYY-MM-DD"
     )
 
-    # Convert dates for filtering
-    mask = (df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))
+    # Apply filter
+    mask = (df['Date'] >= start_date) & (df['Date'] <= end_date)
     filtered_df = df.loc[mask]
 
-    # Display filtered data
+    # Display data
     st.subheader("Filtered Sentiment Data")
     st.dataframe(filtered_df[['Date', 'Title', 'Sentiment V2', 'Reasoning']])
 
-    # Sentiment distribution chart
+    # Plot sentiment distribution
     st.subheader("Sentiment Distribution")
     sentiment_counts = filtered_df['Sentiment V2'].value_counts()
 
@@ -48,4 +50,4 @@ if uploaded_file:
     st.pyplot(fig)
 
 else:
-    st.info("Please upload your sentiment Excel file to get started.")
+    st.error(f"File '{file_path}' not found in the directory.")
