@@ -29,6 +29,17 @@ if os.path.exists(file_path):
     mask = (df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))
     filtered_df = df.loc[mask][['Title', 'Sentiment V2', 'Link', 'Reasoning']]
 
+    # Header row
+    col1, col2, col3 = st.columns([3, 1, 4])
+    with col1:
+        st.markdown("### 📰 Title & Link")
+    with col2:
+        st.markdown("### 📊 Sentiment")
+    with col3:
+        st.markdown("### 🧠 Reasoning")
+
+    st.markdown("---")
+
     # Display entries
     for _, row in filtered_df.iterrows():
         col1, col2, col3 = st.columns([3, 1, 4])
@@ -39,10 +50,10 @@ if os.path.exists(file_path):
                 st.markdown(f"[🔗 Link]({row['Link']})")
 
         with col2:
-            st.markdown(f"**Sentiment:**<br>{row['Sentiment V2']}", unsafe_allow_html=True)
+            st.markdown(f"{row['Sentiment V2']}")
 
         with col3:
-            st.markdown(f"**Reasoning:**<br>{row['Reasoning']}", unsafe_allow_html=True)
+            st.markdown(f"{row['Reasoning']}")
 
         st.markdown("---")
 
