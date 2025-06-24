@@ -7,14 +7,12 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 st.title("🛢️ Black Gold Analytics - Sentiment Analysis")
 
-# Define file path
 file_path = "sentiment_v2_with_reasoning.xlsx"
 
 if os.path.exists(file_path):
     df = pd.read_excel(file_path)
     df['Date'] = pd.to_datetime(df['Date'])
 
-    # Date range picker
     min_date = df['Date'].min()
     max_date = df['Date'].max()
 
@@ -25,19 +23,14 @@ if os.path.exists(file_path):
         max_value=max_date
     )
 
-    # Function to create Plotly donut chart
     def plotly_donut(sentiments, title):
+        # Filter only Bullish and Bearish
+        sentiments = sentiments[sentiments.isin(['Bullish', 'Bearish'])]
         counts = sentiments.value_counts()
         labels = counts.index.tolist()
         values = counts.tolist()
 
-        # Define colors (green for Bullish, red for Bearish, gray for others)
-        color_map = {
-            'Bullish': '#2ecc71',
-            'Bearish': '#e74c3c',
-            'Neutral': '#95a5a6'
-        }
-        colors = [color_map.get(label, '#95a5a6') for label in labels]
+        colors = ['#2ecc71' if label == 'Bullish' else '#e74c3c' for label in labels]
 
         fig = go.Figure(data=[go.Pie(
             labels=labels,
@@ -50,10 +43,11 @@ if os.path.exists(file_path):
         fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0))
         return fig
 
-    # Prepare filtered datasets
     df_selected = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
     df_7d = df[df['Date'] >= datetime.now() - timedelta(days=7)]
+    df_7d = df_7d[df_7d['Sentiment V2'].isin(['Bullish', 'Bearish'])]
     df_30d = df[df['Date'] >= datetime.now() - timedelta(days=30)]
+    df_30d = df_30d[df_30d['Sentiment V2'].isin(['Bullish', 'Bearish'])]
 
     st.subheader("📊 Sentiment Distribution")
 
@@ -67,10 +61,8 @@ if os.path.exists(file_path):
 
     st.markdown("---")
 
-    # Filtered table data
     filtered_df = df_selected[['Date', 'Title', 'Sentiment V2', 'Link', 'Reasoning']]
 
-    # Table headers
     col1, col2, col3 = st.columns([3, 1, 4])
     with col1:
         st.markdown("### 📰 Title & Link")
@@ -81,7 +73,6 @@ if os.path.exists(file_path):
 
     st.markdown("---")
 
-    # Display entries
     for _, row in filtered_df.iterrows():
         col1, col2, col3 = st.columns([3, 1, 4])
         with col1:
