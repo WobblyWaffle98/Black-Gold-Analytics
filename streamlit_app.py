@@ -410,19 +410,11 @@ if os.path.exists(file_path):
             for _, row in recent_articles.iterrows():
                 sentiment_class = "sentiment-bullish" if row['Sentiment V2'].lower() == 'bullish' else "sentiment-bearish"
                 
-                # Escape any quotes in the text to prevent HTML issues
-                title = row['Title'].replace("'", "&#39;").replace('"', '&quot;')
-                reasoning = row['Reasoning'].replace("'", "&#39;").replace('"', '&quot;')
-                
-                link_html = ""
-                if pd.notna(row['Link']):
-                    link_html = f'<p style="margin-top: 1rem;"><a href="{row["Link"]}" target="_blank" style="color: #ffd700; text-decoration: none; font-weight: 500;">🔗 Read Full Article</a></p>'
-                
                 st.markdown(f"""
                 <div class="content-card">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                         <div style="flex: 1;">
-                            <h3 style="color: #ffd700; margin: 0;">{title}</h3>
+                            <h3 style="color: #ffd700; margin: 0;">{row['Title']}</h3>
                             <p class="date-text">📅 {row['Date'].strftime('%B %d, %Y')}</p>
                         </div>
                         <div style="margin-left: 1rem;">
@@ -431,14 +423,15 @@ if os.path.exists(file_path):
                     </div>
                     
                     <div style="margin: 1rem 0;">
-                        <h4 style="color: #ffd700; margin-bottom: 0.5rem; font-size: 1.1rem;">🧠 Analysis:</h4>
-                        <p style="color: #cccccc; line-height: 1.6; margin: 0;">{reasoning}</p>
+                        <h4 style="color: #ffd700; margin-bottom: 0.5rem;">🧠 Analysis:</h4>
+                        <p style="color: #cccccc; line-height: 1.6;">{row['Reasoning']}</p>
                     </div>
                     
-                    {link_html}
+                    {f'<p><a href="{row["Link"]}" target="_blank" style="color: #ffd700; text-decoration: none; font-weight: 500;">🔗 Read Full Article</a></p>' if pd.notna(row['Link']) else ''}
                 </div>
-                <br>
                 """, unsafe_allow_html=True)
+                
+                st.divider()
         else:
             st.markdown("""
             <div class="content-card">
