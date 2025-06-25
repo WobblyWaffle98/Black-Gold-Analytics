@@ -54,12 +54,21 @@ if os.path.exists(file_path):
         labels = counts.index.tolist()
         values = counts.tolist()
 
+        # Define custom colors — assuming 2 classes: negative, positive
+        color_map = {
+            'bullish': 'darkred',
+            'bearish': 'darkgreen'
+        }
+        # Fallback to default if label not in color_map
+        colors = [color_map.get(label, 'gray') for label in labels]
+
         fig = go.Figure(data=[go.Pie(
             labels=labels,
             values=values,
             hole=0.5,
             textinfo='label+percent',
-            hoverinfo='label+value'
+            hoverinfo='label+value',
+            marker=dict(colors=colors)
         )])
         fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0))
         return fig
