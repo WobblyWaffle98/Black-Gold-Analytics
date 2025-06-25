@@ -10,7 +10,7 @@ st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 st.title("🛢️ Black Gold Analytics - Sentiment Analysis")
 
 # Define file path
-file_path = "sentiment_v2_with_reasoning.xlsx"
+file_path = "sentiment_v2_updated.xlsx"
 
 # Define stop words to exclude from top words
 stop_words = set([
