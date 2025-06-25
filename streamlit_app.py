@@ -206,7 +206,7 @@ st.set_page_config(
 
 # Main title with custom styling
 st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #B0B0B0; font-size: 1.2rem; margin-bottom: 2rem;">Premium Oil Market Sentiment Intelligence</p>', unsafe_allow_html=True)
+
 
 # Define file path
 file_path = "sentiment_v2_updated.xlsx"
@@ -228,54 +228,28 @@ def get_top_words(text_series, stop_words, top_n=5):
     word_counts = Counter(filtered_words)
     return word_counts.most_common(top_n)
 
-def create_modern_donut(sentiments, title):
-    """Create a modern donut chart with black and gold theme"""
+def plotly_donut(sentiments, title):
     counts = sentiments.value_counts()
     labels = counts.index.tolist()
     values = counts.tolist()
-    
-    # Custom colors for sentiment
+
+    # Define custom colors — assuming 2 classes: negative, positive
     color_map = {
-        'bearish': '#DC143C',
-        'bullish': '#228B22'
+        'bearish': 'darkred',
+        'bullish': 'darkgreen'
     }
-    colors = [color_map.get(label, '#FFD700') for label in labels]
-    
+    # Fallback to default if label not in color_map
+    colors = [color_map.get(label, 'gray') for label in labels]
+
     fig = go.Figure(data=[go.Pie(
         labels=labels,
         values=values,
-        hole=0.6,
+        hole=0.5,
         textinfo='label+percent',
-        textfont=dict(size=14, color='white', family='Arial Black'),
-        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>',
-        marker=dict(
-            colors=colors,
-            line=dict(color='#FFD700', width=2)
-        ),
-        pull=[0.05 if label == 'bullish' else 0.02 for label in labels]
+        hoverinfo='label+value',
+        marker=dict(colors=colors)
     )])
-    
-    fig.update_layout(
-        title=dict(
-            text=title,
-            font=dict(size=16, color='#FFD700', family='Arial Black'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=60, b=20, l=20, r=20),
-        height=300,
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.2,
-            xanchor="center",
-            x=0.5,
-            font=dict(color='white', size=12)
-        )
-    )
-    
+    fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0))
     return fig
 
 if os.path.exists(file_path):
@@ -331,7 +305,7 @@ if os.path.exists(file_path):
     for data, period, col in datasets:
         with col:
             # Chart
-            fig = create_modern_donut(data['Sentiment V2'], period)
+            fig = plotly_donut(data['Sentiment V2'], period)
             st.plotly_chart(fig, use_container_width=True)
             
             # Top words
