@@ -56,8 +56,8 @@ if os.path.exists(file_path):
 
         # Define custom colors — assuming 2 classes: negative, positive
         color_map = {
-            'bullish': 'darkred',
-            'bearish': 'darkgreen'
+            'bearish': 'darkred',
+            'bullish': 'darkgreen'
         }
         # Fallback to default if label not in color_map
         colors = [color_map.get(label, 'gray') for label in labels]
