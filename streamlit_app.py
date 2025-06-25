@@ -3,445 +3,385 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 import plotly.graph_objects as go
+import plotly.express as px
 import re
 from collections import Counter
 
+# Custom CSS for black and gold theme
+st.markdown("""
+<style>
+    /* Main theme colors */
+    :root {
+        --primary-gold: #FFD700;
+        --secondary-gold: #FFC107;
+        --dark-gold: #B8860B;
+        --rich-black: #0A0A0A;
+        --charcoal: #1A1A1A;
+        --dark-gray: #2D2D2D;
+        --light-gray: #B0B0B0;
+        --accent-gold: #F4D03F;
+    }
+
+    /* App background */
+    .stApp {
+        background: linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 100%);
+        color: #FFFFFF;
+    }
+
+    /* Main container styling */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 95%;
+    }
+
+    /* Title styling */
+    .main-title {
+        background: linear-gradient(45deg, #FFD700, #FFC107);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 3rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 2rem;
+        text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
+    }
+
+    /* Section headers */
+    .section-header {
+        color: #FFD700;
+        font-size: 1.5rem;
+        font-weight: 600;
+        border-bottom: 2px solid #FFD700;
+        padding-bottom: 0.5rem;
+        margin: 1.5rem 0;
+    }
+
+    /* Metric cards */
+    .metric-card {
+        background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
+        border: 1px solid #FFD700;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
+    }
+
+    /* Custom checkbox */
+    .stCheckbox > label {
+        color: #FFD700 !important;
+        font-weight: 500;
+    }
+
+    /* Date input styling */
+    .stDateInput > label {
+        color: #FFD700 !important;
+        font-weight: 500;
+    }
+
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
+    }
+
+    /* News item styling */
+    .news-item {
+        background: linear-gradient(135deg, #1A1A1A 0%, #252525 100%);
+        border-left: 4px solid #FFD700;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .news-item:hover {
+        background: linear-gradient(135deg, #252525 0%, #2D2D2D 100%);
+        transform: translateX(5px);
+        box-shadow: 0 4px 20px rgba(255, 215, 0, 0.1);
+    }
+
+    .news-title {
+        color: #FFFFFF;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .news-date {
+        color: #B0B0B0;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .news-link {
+        background: linear-gradient(45deg, #FFD700, #FFC107);
+        color: #000000 !important;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        text-decoration: none !important;
+        font-weight: 500;
+        display: inline-block;
+        margin: 0.5rem 0;
+        transition: all 0.3s ease;
+    }
+
+    .news-link:hover {
+        background: linear-gradient(45deg, #FFC107, #B8860B);
+        transform: scale(1.05);
+    }
+
+    .sentiment-badge {
+        display: inline-block;
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+
+    .sentiment-bullish {
+        background: linear-gradient(45deg, #2E8B57, #228B22);
+        color: white;
+        box-shadow: 0 2px 8px rgba(46, 139, 87, 0.3);
+    }
+
+    .sentiment-bearish {
+        background: linear-gradient(45deg, #DC143C, #B22222);
+        color: white;
+        box-shadow: 0 2px 8px rgba(220, 20, 60, 0.3);
+    }
+
+    .reasoning-text {
+        background: rgba(255, 215, 0, 0.05);
+        border-left: 3px solid #FFD700;
+        padding: 1rem;
+        border-radius: 5px;
+        margin-top: 1rem;
+        font-style: italic;
+        color: #E0E0E0;
+    }
+
+    /* Top words styling */
+    .top-words {
+        background: rgba(255, 215, 0, 0.05);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .word-item {
+        background: linear-gradient(45deg, #2D2D2D, #3D3D3D);
+        color: #FFD700;
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        margin: 0.2rem 0;
+        display: inline-block;
+        font-weight: 500;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+</style>
+""", unsafe_allow_html=True)
+
 # Page configuration
 st.set_page_config(
-    page_title="Black Gold Analytics", 
+    page_title="Black Gold Analytics",
+    page_icon="🛢️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for black and gold theme - simplified and safe
-st.markdown("""
-<style>
-    /* Main background */
-    .stApp {
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
-        color: #f5f5f5;
-    }
-    
-    /* Header styling */
-    .main-header {
-        background: linear-gradient(90deg, #000000 0%, #1a1a1a 20%, #2d2d2d 50%, #1a1a1a 80%, #000000 100%);
-        padding: 2rem 0;
-        margin: -1rem -1rem 2rem -1rem;
-        border-bottom: 3px solid #ffd700;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
-    }
-    
-    .main-title {
-        font-size: 3rem;
-        font-weight: 700;
-        color: #ffd700;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        margin: 0;
-        letter-spacing: 2px;
-    }
-    
-    .main-subtitle {
-        font-size: 1.1rem;
-        color: #cccccc;
-        margin-top: 0.5rem;
-        font-weight: 300;
-    }
-    
-    /* Section headers */
-    .section-header {
-        font-size: 2rem;
-        color: #ffd700;
-        margin: 2rem 0 1rem 0;
-        text-align: center;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-    }
-    
-    /* Cards */
-    .metric-card {
-        background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
-        border: 1px solid #ffd700;
-        border-radius: 10px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
-        text-align: center;
-    }
-    
-    .content-card {
-        background: linear-gradient(145deg, #1a1a1a, #252525);
-        border-left: 4px solid #ffd700;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Sentiment colors */
-    .sentiment-bullish {
-        color: #00ff88;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    
-    .sentiment-bearish {
-        color: #ff4444;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    
-    /* Top words */
-    .top-words {
-        background: rgba(255, 215, 0, 0.1);
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-        border: 1px solid rgba(255, 215, 0, 0.3);
-    }
-    
-    .word-item {
-        color: #ffd700;
-        font-weight: 500;
-        margin: 0.3rem 0;
-    }
-    
-    /* Date styling */
-    .date-text {
-        color: #888888;
-        font-size: 0.9rem;
-        font-style: italic;
-    }
-    
-    /* Dividers */
-    .gold-divider {
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #ffd700, transparent);
-        margin: 2rem 0;
-        border: none;
-    }
-    
-    /* Hide Streamlit elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Fix for inputs */
-    .stSelectbox label, .stDateInput label, .stCheckbox label {
-        color: #ffffff !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Header section
-st.markdown("""
-<div class="main-header">
-    <h1 class="main-title">⚫ BLACK GOLD ANALYTICS ⚫</h1>
-    <p class="main-subtitle">Advanced Sentiment Analysis Dashboard</p>
-</div>
-""", unsafe_allow_html=True)
+# Main title with custom styling
+st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; color: #B0B0B0; font-size: 1.2rem; margin-bottom: 2rem;">Premium Oil Market Sentiment Intelligence</p>', unsafe_allow_html=True)
 
 # Define file path
 file_path = "sentiment_v2_updated.xlsx"
 
-# Enhanced stop words list
+# Enhanced stop words
 stop_words = set([
     'the', 'and', 'is', 'to', 'in', 'of', 'for', 'on', 'with', 'at', 'by', 'an',
     'be', 'this', 'that', 'from', 'as', 'are', 'it', 'was', 'or', 'which', 'a',
-    'because', 'oil', 'sentiment', 'prices', 'market', 'bullish', 'bearish', 
-    'suggests', 'could', 'would', 'will', 'may', 'can', 'has', 'have', 'had',
-    'been', 'being', 'do', 'does', 'did', 'will', 'would', 'should', 'could',
-    'may', 'might', 'must', 'shall', 'but', 'if', 'then', 'than', 'when', 'where',
-    'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
-    'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too',
-    'very', 's', 't', 'can', 'll', 'will', 'just', 'don', 'should', 've', 'crude',
-    'production', 'demand', 'supply', 'news', 'report', 'analysis', 'week', 'day'
+    'because', 'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests', 'could',
+    'will', 'may', 'can', 'would', 'should', 'might', 'has', 'have', 'had', 'been',
+    'than', 'more', 'most', 'some', 'any', 'also', 'other', 'such', 'only', 'own',
+    'out', 'so', 'can', 'her', 'there', 'what', 'up', 'its', 'about', 'into', 'than', 'them'
 ])
 
 def get_top_words(text_series, stop_words, top_n=5):
-    """Extract top words from text series"""
-    if text_series.empty:
-        return []
-    
     combined_text = " ".join(text_series.dropna().astype(str)).lower()
-    words = re.findall(r'\b[a-z]{3,}\b', combined_text)
-    filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
+    words = re.findall(r'\b[a-z]+\b', combined_text)
+    filtered_words = [word for word in words if word not in stop_words and len(word) > 3]
     word_counts = Counter(filtered_words)
     return word_counts.most_common(top_n)
 
-def create_plotly_donut(sentiments, title):
-    """Create enhanced donut chart with black and gold theme"""
-    if sentiments.empty:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="No Data Available", 
-            x=0.5, y=0.5, 
-            font=dict(size=16, color="#ffd700"), 
-            showarrow=False
-        )
-        fig.update_layout(
-            title=dict(
-                text=title,
-                font=dict(size=16, color="#ffd700"),
-                x=0.5
-            ),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(t=40, b=0, l=0, r=0),
-            height=350
-        )
-        return fig
-    
+def create_modern_donut(sentiments, title):
+    """Create a modern donut chart with black and gold theme"""
     counts = sentiments.value_counts()
     labels = counts.index.tolist()
     values = counts.tolist()
     
-    # Color mapping
+    # Custom colors for sentiment
     color_map = {
-        'bearish': '#ff4444',
-        'bullish': '#00ff88',
-        'neutral': '#ffd700'
+        'bearish': '#DC143C',
+        'bullish': '#228B22'
     }
-    colors = [color_map.get(label.lower(), '#888888') for label in labels]
+    colors = [color_map.get(label, '#FFD700') for label in labels]
     
     fig = go.Figure(data=[go.Pie(
-        labels=[label.upper() for label in labels],
+        labels=labels,
         values=values,
-        hole=0.5,
+        hole=0.6,
         textinfo='label+percent',
-        textfont=dict(size=11, color='white'),
+        textfont=dict(size=14, color='white', family='Arial Black'),
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>',
         marker=dict(
             colors=colors,
-            line=dict(color='#ffd700', width=2)
-        )
+            line=dict(color='#FFD700', width=2)
+        ),
+        pull=[0.05 if label == 'bullish' else 0.02 for label in labels]
     )])
     
     fig.update_layout(
         title=dict(
             text=title,
-            font=dict(size=16, color="#ffd700"),
+            font=dict(size=16, color='#FFD700', family='Arial Black'),
             x=0.5
         ),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=40, b=0, l=0, r=0),
-        height=350,
-        showlegend=False,
-        font=dict(color='white')
-    )
-    
-    return fig
-
-def create_sentiment_timeline(df):
-    """Create timeline chart using Plotly"""
-    if df.empty:
-        return go.Figure()
-    
-    # Daily sentiment counts
-    daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment V2']).size().reset_index(name='count')
-    daily_sentiment['Date'] = pd.to_datetime(daily_sentiment['Date'])
-    
-    fig = go.Figure()
-    
-    # Add traces for each sentiment
-    for sentiment in daily_sentiment['Sentiment V2'].unique():
-        sentiment_data = daily_sentiment[daily_sentiment['Sentiment V2'] == sentiment]
-        color = '#00ff88' if sentiment.lower() == 'bullish' else '#ff4444'
-        
-        fig.add_trace(go.Scatter(
-            x=sentiment_data['Date'],
-            y=sentiment_data['count'],
-            mode='lines+markers',
-            name=sentiment.upper(),
-            line=dict(color=color, width=3),
-            marker=dict(size=8, color=color, line=dict(color='white', width=1)),
-            hovertemplate=f'<b>{sentiment.upper()}</b><br>Date: %{{x}}<br>Count: %{{y}}<extra></extra>'
-        ))
-    
-    fig.update_layout(
-        title=dict(
-            text="📈 Sentiment Timeline",
-            font=dict(size=20, color="#ffd700"),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(26,26,26,0.8)',
-        font=dict(color='white'),
-        xaxis=dict(
-            gridcolor='rgba(255,215,0,0.2)',
-            title="Date",
-            title_font=dict(color="#ffd700")
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,215,0,0.2)',
-            title="Article Count",
-            title_font=dict(color="#ffd700")
-        ),
+        margin=dict(t=60, b=20, l=20, r=20),
+        height=300,
+        showlegend=True,
         legend=dict(
-            bgcolor="rgba(0,0,0,0.8)",
-            bordercolor="#ffd700",
-            borderwidth=1,
-            font=dict(color='white')
-        ),
-        height=400,
-        hovermode='x unified'
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5,
+            font=dict(color='white', size=12)
+        )
     )
     
     return fig
 
-# Main application
 if os.path.exists(file_path):
-    try:
-        df = pd.read_excel(file_path)
-        df['Date'] = pd.to_datetime(df['Date'])
+    df = pd.read_excel(file_path)
+    df['Date'] = pd.to_datetime(df['Date'])
 
-        # Control panel
-        st.markdown('<h2 class="section-header">⚙️ Control Panel</h2>', unsafe_allow_html=True)
+    # Sidebar for controls
+    with st.sidebar:
+        st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
         
-        col1, col2 = st.columns([3, 1])
+        # Date range picker
+        min_date = df['Date'].min()
+        max_date = df['Date'].max()
         
-        with col1:
-            min_date = df['Date'].min().date()
-            max_date = df['Date'].max().date()
-            default_start = max(min_date, (datetime.now() - timedelta(days=365)).date())
+        st.markdown("**📅 Date Range**")
+        start_date, end_date = st.date_input(
+            "Select date range:",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("**🎯 Filters**")
+        filter_sentiments = st.checkbox(
+            "Show only Bullish and Bearish sentiment", 
+            value=True
+        )
+
+    # Apply filtering
+    if filter_sentiments:
+        df = df[df['Sentiment V2'].isin(['bullish', 'bearish'])]
+
+    # Create filtered datasets
+    df_selected = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+    df_3d = df[df['Date'] >= datetime.now() - timedelta(days=3)]
+    df_7d = df[df['Date'] >= datetime.now() - timedelta(days=7)]
+    df_30d = df[df['Date'] >= datetime.now() - timedelta(days=30)]
+
+    # Key metrics section
+    st.markdown('<div class="section-header">📊 SENTIMENT OVERVIEW</div>', unsafe_allow_html=True)
+    
+    # Create metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    datasets = [
+        (df_selected, "Selected Range", col1),
+        (df_3d, "Last 3 Days", col2),
+        (df_7d, "Last 7 Days", col3),
+        (df_30d, "Last 30 Days", col4)
+    ]
+    
+    for data, period, col in datasets:
+        with col:
+            # Chart
+            fig = create_modern_donut(data['Sentiment V2'], period)
+            st.plotly_chart(fig, use_container_width=True)
             
-            start_date, end_date = st.date_input(
-                "📅 Select Date Range:",
-                value=(default_start, max_date),
-                min_value=min_date,
-                max_value=max_date
-            )
-        
-        with col2:
-            filter_sentiments = st.checkbox(
-                "🎯 Show only Bullish and Bearish", 
-                value=True
-            )
+            # Top words
+            top_words = get_top_words(data['Reasoning'], stop_words)
+            if top_words:
+                st.markdown(f'<div class="top-words"><strong style="color: #FFD700;">🔑 Key Terms</strong><br>', unsafe_allow_html=True)
+                for word, count in top_words:
+                    st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-        # Apply filters
-        if filter_sentiments:
-            df = df[df['Sentiment V2'].isin(['bullish', 'bearish'])]
-
-        # Create filtered datasets
-        df_selected = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
-        df_3d = df[df['Date'] >= datetime.now() - timedelta(days=3)]
-        df_7d = df[df['Date'] >= datetime.now() - timedelta(days=7)]
-        df_30d = df[df['Date'] >= datetime.now() - timedelta(days=30)]
-
-        # Sentiment distribution
-        st.markdown('<hr class="gold-divider">', unsafe_allow_html=True)
-        st.markdown('<h2 class="section-header">📊 Sentiment Distribution</h2>', unsafe_allow_html=True)
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        datasets = [
-            (col1, df_selected, "Selected Range"),
-            (col2, df_3d, "Last 3 Days"),
-            (col3, df_7d, "Last 7 Days"),
-            (col4, df_30d, "Last 30 Days")
-        ]
-
-        for col, data, title in datasets:
-            with col:
-                # Display chart
-                fig = create_plotly_donut(data['Sentiment V2'], title)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Top words
-                top_words = get_top_words(data['Reasoning'], stop_words)
-                if top_words:
-                    st.markdown('<div class="top-words">', unsafe_allow_html=True)
-                    st.markdown("**🔤 Top Keywords:**")
-                    for word, count in top_words:
-                        st.markdown(f'<div class="word-item">• {word.title()} ({count})</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="top-words"><small>No keywords found</small></div>', unsafe_allow_html=True)
-
-        # Timeline
-        if not df_selected.empty:
-            st.markdown('<hr class="gold-divider">', unsafe_allow_html=True)
-            timeline_fig = create_sentiment_timeline(df_selected)
-            st.plotly_chart(timeline_fig, use_container_width=True)
-
-        # Summary metrics
-        st.markdown('<hr class="gold-divider">', unsafe_allow_html=True)
-        st.markdown('<h2 class="section-header">📈 Summary Metrics</h2>', unsafe_allow_html=True)
-        
-        if not df_selected.empty:
-            total_articles = len(df_selected)
-            bullish_count = len(df_selected[df_selected['Sentiment V2'].str.lower() == 'bullish'])
-            bearish_count = len(df_selected[df_selected['Sentiment V2'].str.lower() == 'bearish'])
+    # News feed section
+    st.markdown('<div class="section-header">📰 SENTIMENT ANALYSIS FEED</div>', unsafe_allow_html=True)
+    
+    filtered_df = df_selected[['Date', 'Title', 'Sentiment V2', 'Link', 'Reasoning']].sort_values('Date', ascending=False)
+    
+    if len(filtered_df) == 0:
+        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected date range.</div>', unsafe_allow_html=True)
+    else:
+        for _, row in filtered_df.iterrows():
+            sentiment_class = f"sentiment-{row['Sentiment V2']}" if row['Sentiment V2'] in ['bullish', 'bearish'] else 'sentiment-neutral'
             
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3 style="color: #ffd700; margin: 0;">📊 Total Articles</h3>
-                    <h1 style="color: white; margin: 0.5rem 0;">{total_articles}</h1>
+            news_html = f'''
+            <div class="news-item">
+                <div class="news-title">{row['Title']}</div>
+                <div class="news-date">📅 {row['Date'].strftime('%B %d, %Y')}</div>
+                <div style="margin: 1rem 0;">
+                    <span class="sentiment-badge {sentiment_class}">{row['Sentiment V2'].upper()}</span>
                 </div>
-                """, unsafe_allow_html=True)
+            '''
             
-            with col2:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3 style="color: #00ff88; margin: 0;">📈 Bullish</h3>
-                    <h1 style="color: #00ff88; margin: 0.5rem 0;">{bullish_count}</h1>
+            if pd.notna(row['Link']):
+                news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read Full Article</a>'
+            
+            news_html += f'''
+                <div class="reasoning-text">
+                    <strong style="color: #FFD700;">💡 Analysis:</strong><br>
+                    {row['Reasoning']}
                 </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3 style="color: #ff4444; margin: 0;">📉 Bearish</h3>
-                    <h1 style="color: #ff4444; margin: 0.5rem 0;">{bearish_count}</h1>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # Articles section
-        st.markdown('<hr class="gold-divider">', unsafe_allow_html=True)
-        st.markdown('<h2 class="section-header">📰 Recent Articles</h2>', unsafe_allow_html=True)
-
-        if not df_selected.empty:
-            # Show recent articles (limit to 10 for performance)
-            recent_articles = df_selected.sort_values('Date', ascending=False).head(10)
-            
-            for _, row in recent_articles.iterrows():
-                # Title and sentiment
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.markdown(f"### {row['Title']}")
-                    st.caption(f"📅 {row['Date'].strftime('%B %d, %Y')}")
-                with col2:
-                    if row['Sentiment V2'].lower() == 'bullish':
-                        st.markdown(f"<span class='sentiment-bullish'>● {row['Sentiment V2'].upper()}</span>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"<span class='sentiment-bearish'>● {row['Sentiment V2'].upper()}</span>", unsafe_allow_html=True)
-                
-                # Analysis
-                st.markdown("**🧠 Analysis:**")
-                st.write(row['Reasoning'])
-                
-                # Link
-                if pd.notna(row['Link']):
-                    st.markdown(f"[🔗 Read Full Article]({row['Link']})")
-                
-                st.divider()
-        else:
-            st.markdown("""
-            <div class="content-card">
-                <p style="text-align: center; color: #888888;">No articles found for the selected criteria.</p>
             </div>
-            """, unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+            '''
+            
+            st.markdown(news_html, unsafe_allow_html=True)
 
 else:
-    st.markdown(f"""
-    <div class="content-card" style="border-left-color: #ff4444;">
-        <h3 style="color: #ff4444;">❌ File Not Found</h3>
-        <p>The file <code>{file_path}</code> was not found. Please ensure the file exists in the correct location.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.error(f"❌ Data file not found: {file_path}")
+    st.markdown("Please ensure the sentiment data file is available in the application directory.")
+
+# Footer
+st.markdown("---")
+st.markdown(
+    '<div style="text-align: center; color: #B0B0B0; padding: 1rem;">© 2024 Black Gold Analytics - Premium Market Intelligence</div>',
+    unsafe_allow_html=True
+)
