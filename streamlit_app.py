@@ -311,7 +311,6 @@ if os.path.exists(file_path):
             # Top words
             top_words = get_top_words(data['Reasoning'], stop_words)
             if top_words:
-                st.markdown(f'<div class="top-words"><strong style="color: #FFD700;">🔑 Key Terms</strong><br>', unsafe_allow_html=True)
                 for word, count in top_words:
                     st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
