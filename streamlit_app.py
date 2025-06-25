@@ -15,7 +15,7 @@ file_path = "sentiment_v2_updated.xlsx"
 # Define stop words to exclude from top words
 stop_words = set([
     'the', 'and', 'is', 'to', 'in', 'of', 'for', 'on', 'with', 'at', 'by', 'an',
-    'be', 'this', 'that', 'from', 'as', 'are', 'it', 'was', 'or', 'which','a','because','oil','sentiment','prices'
+    'be', 'this', 'that', 'from', 'as', 'are', 'it', 'was', 'or', 'which','a','because','oil','sentiment','prices','market','bullish','suggests','could'
     # Add more words to exclude here
 ])
 
