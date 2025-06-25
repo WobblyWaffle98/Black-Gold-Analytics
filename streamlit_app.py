@@ -408,28 +408,24 @@ if os.path.exists(file_path):
             recent_articles = df_selected.sort_values('Date', ascending=False).head(10)
             
             for _, row in recent_articles.iterrows():
-                sentiment_class = "sentiment-bullish" if row['Sentiment V2'].lower() == 'bullish' else "sentiment-bearish"
+                # Title and sentiment
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"### {row['Title']}")
+                    st.caption(f"📅 {row['Date'].strftime('%B %d, %Y')}")
+                with col2:
+                    if row['Sentiment V2'].lower() == 'bullish':
+                        st.markdown(f"<span class='sentiment-bullish'>● {row['Sentiment V2'].upper()}</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<span class='sentiment-bearish'>● {row['Sentiment V2'].upper()}</span>", unsafe_allow_html=True)
                 
-                st.markdown(f"""
-                <div class="content-card">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div style="flex: 1;">
-                            <h3 style="color: #ffd700; margin: 0;">{row['Title']}</h3>
-                            <p class="date-text">📅 {row['Date'].strftime('%B %d, %Y')}</p>
-                        </div>
-                        <div style="margin-left: 1rem;">
-                            <span class="{sentiment_class}">● {row['Sentiment V2'].upper()}</span>
-                        </div>
-                    </div>
-                    
-                    <div style="margin: 1rem 0;">
-                        <h4 style="color: #ffd700; margin-bottom: 0.5rem;">🧠 Analysis:</h4>
-                        <p style="color: #cccccc; line-height: 1.6;">{row['Reasoning']}</p>
-                    </div>
-                    
-                    {f'<p><a href="{row["Link"]}" target="_blank" style="color: #ffd700; text-decoration: none; font-weight: 500;">🔗 Read Full Article</a></p>' if pd.notna(row['Link']) else ''}
-                </div>
-                """, unsafe_allow_html=True)
+                # Analysis
+                st.markdown("**🧠 Analysis:**")
+                st.write(row['Reasoning'])
+                
+                # Link
+                if pd.notna(row['Link']):
+                    st.markdown(f"[🔗 Read Full Article]({row['Link']})")
                 
                 st.divider()
         else:
