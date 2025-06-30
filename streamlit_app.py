@@ -307,7 +307,7 @@ if os.path.exists(file_path):
         st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
         
         # Date range picker
-        min_date = df['Date'].min()
+        min_date = df['Date'].max() - timedelta(days=365)
         max_date = df['Date'].max()
         
         st.markdown("**📅 Date Range**")
