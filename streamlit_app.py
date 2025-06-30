@@ -370,7 +370,7 @@ if os.path.exists(file_path):
             st.plotly_chart(fig, use_container_width=True)
             
             # Top words
-            top_words = get_top_words(data['Reasoning'], stop_words)
+            top_words = get_top_phrases(data['Reasoning'], stop_words)
             if top_words:
                 for word, count in top_words:
                     st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
