@@ -282,7 +282,7 @@ def preprocess(text):
 
 def get_top_phrases(text_series, stop_words, top_n=10, ngram_range=(1, 2)):
     cleaned = text_series.dropna().astype(str).apply(preprocess)
-    vectorizer = CountVectorizer(stop_words=stop_words, ngram_range=ngram_range)
+    vectorizer = CountVectorizer(stop_words=list(stop_words), ngram_range=ngram_range)
     X = vectorizer.fit_transform(cleaned)
     sum_words = X.sum(axis=0)
     words_freq = [(word, int(sum_words[0, idx])) for word, idx in vectorizer.vocabulary_.items()]
