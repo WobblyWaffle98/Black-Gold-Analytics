@@ -280,7 +280,7 @@ def preprocess(text):
     tokens = re.findall(r'\b[a-z]+\b', text)
     return ' '.join([lemmatizer.lemmatize(token) for token in tokens if token not in stop_words and len(token) > 2])
 
-def get_top_phrases(text_series, stop_words, top_n=10, ngram_range=(1, 2)):
+def get_top_phrases(text_series, stop_words, top_n=5, ngram_range=(1, 2)):
     cleaned = text_series.dropna().astype(str).apply(preprocess)
     vectorizer = CountVectorizer(stop_words=list(stop_words), ngram_range=ngram_range)
     X = vectorizer.fit_transform(cleaned)
