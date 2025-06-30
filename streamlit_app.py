@@ -6,6 +6,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 import re
 from collections import Counter
+from sklearn.feature_extraction.text import CountVectorizer
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+import nltk
 
 # Custom CSS for black and gold theme with compact news layout
 st.markdown("""
@@ -258,21 +262,32 @@ st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_a
 file_path = "sentiment_v2_updated.xlsx"
 
 # Enhanced stop words
-stop_words = set([
-    'the', 'and', 'is', 'to', 'in', 'of', 'for', 'on', 'with', 'at', 'by', 'an',
-    'be', 'this', 'that', 'from', 'as', 'are', 'it', 'was', 'or', 'which', 'a',
-    'because', 'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests', 'could',
-    'will', 'may', 'can', 'would', 'should', 'might', 'has', 'have', 'had', 'been',
-    'than', 'more', 'most', 'some', 'any', 'also', 'other', 'such', 'only', 'own',
-    'out', 'so', 'can', 'her', 'there', 'what', 'up', 'its', 'about', 'into', 'than', 'them'
-])
+# Make sure these are downloaded
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+nltk.download('stopwords')
 
-def get_top_words(text_series, stop_words, top_n=5):
-    combined_text = " ".join(text_series.dropna().astype(str)).lower()
-    words = re.findall(r'\b[a-z]+\b', combined_text)
-    filtered_words = [word for word in words if word not in stop_words and len(word) > 3]
-    word_counts = Counter(filtered_words)
-    return word_counts.most_common(top_n)
+# Custom stop words
+custom_stop_words = set([
+    'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests',
+    'could', 'will', 'may', 'can', 'would', 'should', 'might'
+])
+stop_words = set(stopwords.words('english')).union(custom_stop_words)
+
+def preprocess(text):
+    lemmatizer = WordNetLemmatizer()
+    text = text.lower()
+    tokens = re.findall(r'\b[a-z]+\b', text)
+    return ' '.join([lemmatizer.lemmatize(token) for token in tokens if token not in stop_words and len(token) > 2])
+
+def get_top_phrases(text_series, stop_words, top_n=10, ngram_range=(1, 2)):
+    cleaned = text_series.dropna().astype(str).apply(preprocess)
+    vectorizer = CountVectorizer(stop_words=stop_words, ngram_range=ngram_range)
+    X = vectorizer.fit_transform(cleaned)
+    sum_words = X.sum(axis=0)
+    words_freq = [(word, int(sum_words[0, idx])) for word, idx in vectorizer.vocabulary_.items()]
+    sorted_words = sorted(words_freq, key=lambda x: x[1], reverse=True)
+    return sorted_words[:top_n]
 
 def plotly_donut(sentiments, title):
     counts = sentiments.value_counts()
