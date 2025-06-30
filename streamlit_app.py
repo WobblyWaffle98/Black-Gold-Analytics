@@ -7,7 +7,7 @@ import plotly.express as px
 import re
 from collections import Counter
 
-# Custom CSS for black and gold theme
+# Custom CSS for black and gold theme with compact news layout
 st.markdown("""
 <style>
     /* Main theme colors */
@@ -91,83 +91,113 @@ st.markdown("""
         background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
     }
 
-    /* News item styling */
+    /* COMPACT NEWS ITEM STYLING */
     .news-item {
         background: linear-gradient(135deg, #1A1A1A 0%, #252525 100%);
-        border-left: 4px solid #FFD700;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
+        border-left: 3px solid #FFD700;
+        border-radius: 6px;
+        padding: 0.8rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
+        position: relative;
     }
 
     .news-item:hover {
         background: linear-gradient(135deg, #252525 0%, #2D2D2D 100%);
-        transform: translateX(5px);
-        box-shadow: 0 4px 20px rgba(255, 215, 0, 0.1);
+        transform: translateX(3px);
+        box-shadow: 0 2px 10px rgba(255, 215, 0, 0.1);
+    }
+
+    .news-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+        gap: 1rem;
     }
 
     .news-title {
         color: #FFFFFF;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        line-height: 1.3;
+        flex: 1;
+        margin: 0;
+    }
+
+    .news-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        flex-shrink: 0;
     }
 
     .news-date {
         color: #B0B0B0;
-        font-size: 0.9rem;
-        margin-bottom: 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
     }
 
     .news-link {
         background: linear-gradient(45deg, #FFD700, #FFC107);
         color: #000000 !important;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
         text-decoration: none !important;
         font-weight: 500;
-        display: inline-block;
-        margin: 0.5rem 0;
-        transition: all 0.3s ease;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+        white-space: nowrap;
     }
 
     .news-link:hover {
         background: linear-gradient(45deg, #FFC107, #B8860B);
-        transform: scale(1.05);
+        transform: scale(1.03);
     }
 
     .sentiment-badge {
         display: inline-block;
-        padding: 0.4rem 1rem;
-        border-radius: 20px;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
         font-weight: bold;
         text-transform: uppercase;
-        font-size: 0.85rem;
-        letter-spacing: 0.5px;
+        font-size: 0.7rem;
+        letter-spacing: 0.3px;
+        min-width: 60px;
+        text-align: center;
     }
 
     .sentiment-bullish {
         background: linear-gradient(45deg, #2E8B57, #228B22);
         color: white;
-        box-shadow: 0 2px 8px rgba(46, 139, 87, 0.3);
+        box-shadow: 0 1px 4px rgba(46, 139, 87, 0.3);
     }
 
     .sentiment-bearish {
         background: linear-gradient(45deg, #DC143C, #B22222);
         color: white;
-        box-shadow: 0 2px 8px rgba(220, 20, 60, 0.3);
+        box-shadow: 0 1px 4px rgba(220, 20, 60, 0.3);
     }
 
     .reasoning-text {
-        background: rgba(255, 215, 0, 0.05);
-        border-left: 3px solid #FFD700;
-        padding: 1rem;
-        border-radius: 5px;
-        margin-top: 1rem;
+        background: rgba(255, 215, 0, 0.03);
+        border-left: 2px solid rgba(255, 215, 0, 0.3);
+        padding: 0.6rem;
+        border-radius: 4px;
+        margin-top: 0.5rem;
         font-style: italic;
-        color: #E0E0E0;
+        color: #D0D0D0;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    .reasoning-label {
+        color: #FFD700;
+        font-weight: 600;
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+        display: block;
     }
 
     /* Top words styling */
@@ -187,6 +217,22 @@ st.markdown("""
         display: inline-block;
         font-weight: 500;
         border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    /* Responsive design for mobile */
+    @media (max-width: 768px) {
+        .news-header {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .news-meta {
+            align-self: flex-start;
+        }
+        
+        .news-title {
+            font-size: 0.95rem;
+        }
     }
 
     /* Hide Streamlit branding */
@@ -328,19 +374,21 @@ if os.path.exists(file_path):
             
             news_html = f'''
             <div class="news-item">
-                <div class="news-title">{row['Title']}</div>
-                <div class="news-date">📅 {row['Date'].strftime('%B %d, %Y')}</div>
-                <div style="margin: 1rem 0;">
-                    <span class="sentiment-badge {sentiment_class}">{row['Sentiment V2'].upper()}</span>
-                </div>
+                <div class="news-header">
+                    <div class="news-title">{row['Title']}</div>
+                    <div class="news-meta">
+                        <span class="sentiment-badge {sentiment_class}">{row['Sentiment V2'].upper()}</span>
+                        <div class="news-date">📅 {row['Date'].strftime('%m/%d/%y')}</div>
             '''
             
             if pd.notna(row['Link']):
-                news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read Full Article</a>'
+                news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read</a>'
             
             news_html += f'''
+                    </div>
+                </div>
                 <div class="reasoning-text">
-                    <strong style="color: #FFD700;">💡 Analysis:</strong><br>
+                    <span class="reasoning-label">💡 Analysis:</span>
                     {row['Reasoning']}
                 </div>
             </div>
