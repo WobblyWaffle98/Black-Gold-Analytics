@@ -313,6 +313,56 @@ def plotly_donut(sentiments, title):
     fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0))
     return fig
 
+def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
+    """Create a time series chart showing net bullish sentiment (bullish - bearish) by day"""
+    # Group by date and sentiment, count occurrences
+    daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment V2']).size().unstack(fill_value=0)
+    
+    # Calculate net sentiment (bullish - bearish)
+    if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
+        daily_sentiment['net_sentiment'] = daily_sentiment['bullish'] - daily_sentiment['bearish']
+    elif 'bullish' in daily_sentiment.columns:
+        daily_sentiment['net_sentiment'] = daily_sentiment['bullish']
+    elif 'bearish' in daily_sentiment.columns:
+        daily_sentiment['net_sentiment'] = -daily_sentiment['bearish']
+    else:
+        daily_sentiment['net_sentiment'] = 0
+    
+    # Create colors based on positive/negative values
+    colors = ['darkgreen' if x >= 0 else 'darkred' for x in daily_sentiment['net_sentiment']]
+    
+    fig = go.Figure()
+    
+    # Add bar chart
+    fig.add_trace(go.Bar(
+        x=daily_sentiment.index,
+        y=daily_sentiment['net_sentiment'],
+        marker_color=colors,
+        name='Net Sentiment',
+        hovertemplate='<b>%{x}</b><br>Net Sentiment: %{y}<extra></extra>'
+    ))
+    
+    # Add horizontal line at y=0
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    
+    # Update layout
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Net Bullish Sentiment (Bullish - Bearish)",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
+        showlegend=False,
+        margin=dict(t=40, b=40, l=40, r=40)
+    )
+    
+    # Style the axes
+    fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
+    fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)')
+    
+    return fig
+
 if os.path.exists(file_path):
     df = pd.read_excel(file_path)
     df['Date'] = pd.to_datetime(df['Date'])
@@ -375,6 +425,16 @@ if os.path.exists(file_path):
                 for word, count in top_words:
                     st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+
+    # Time series chart section
+    st.markdown('<div class="section-header">📈 NET SENTIMENT TREND</div>', unsafe_allow_html=True)
+    
+    if len(df_selected) > 0:
+        net_sentiment_fig = create_net_sentiment_chart(df_selected, "Net Bullish Sentiment - Selected Date Range")
+        st.plotly_chart(net_sentiment_fig, use_container_width=True)
+    else:
+        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected date range to display trend chart.</div>', unsafe_allow_html=True)
+
 
     # News feed section
     st.markdown('<div class="section-header">📰 SENTIMENT ANALYSIS FEED</div>', unsafe_allow_html=True)
