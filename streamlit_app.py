@@ -310,7 +310,7 @@ def plotly_donut(sentiments, title):
         hoverinfo='label+value',
         marker=dict(colors=colors)
     )])
-    fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0))
+    fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
 def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
