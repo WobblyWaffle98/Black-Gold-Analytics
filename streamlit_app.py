@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-import os
 import plotly.graph_objects as go
 import plotly.express as px
 import re
@@ -10,6 +9,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 import nltk
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 
 # Custom CSS for black and gold theme with compact news layout
 st.markdown("""
@@ -160,6 +161,21 @@ st.markdown("""
         transform: scale(1.03);
     }
 
+    .category-badge {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.3px;
+        min-width: 60px;
+        text-align: center;
+        background: linear-gradient(45deg, #4A90E2, #357ABD);
+        color: white;
+        box-shadow: 0 1px 4px rgba(74, 144, 226, 0.3);
+    }
+
     .sentiment-badge {
         display: inline-block;
         padding: 0.2rem 0.6rem;
@@ -223,6 +239,26 @@ st.markdown("""
         border: 1px solid rgba(255, 215, 0, 0.3);
     }
 
+    /* Connection status */
+    .connection-status {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+
+    .connection-success {
+        background: rgba(46, 139, 87, 0.2);
+        border: 1px solid #2E8B57;
+        color: #90EE90;
+    }
+
+    .connection-error {
+        background: rgba(220, 20, 60, 0.2);
+        border: 1px solid #DC143C;
+        color: #FFB6C1;
+    }
+
     /* Responsive design for mobile */
     @media (max-width: 768px) {
         .news-header {
@@ -257,50 +293,128 @@ st.set_page_config(
 # Main title with custom styling
 st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_allow_html=True)
 
+# MongoDB connection configuration
+@st.cache_resource
+def init_connection():
+    uri = "mongodb+srv://harithzahrin:oMkiAdQMHua7T70I@blackgoldanalytics.caumk6v.mongodb.net/?retryWrites=true&w=majority&appName=BlackGoldAnalytics"
+    try:
+        client = MongoClient(uri, server_api=ServerApi('1'))
+        client.admin.command('ping')
+        return client
+    except Exception as e:
+        st.error(f"Failed to connect to MongoDB: {e}")
+        return None
 
-# Define file path
-file_path = "sentiment_v2_updated.xlsx"
+# Load data from MongoDB
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_data():
+    client = init_connection()
+    if client is None:
+        return pd.DataFrame()
+    
+    try:
+        db = client['blackgold_db']
+        collection = db['rss_articles']
+        
+        # Fetch all documents
+        cursor = collection.find({})
+        data = list(cursor)
+        
+        if not data:
+            return pd.DataFrame()
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+        
+        # Clean and prepare data
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        
+        # Handle different sentiment column names
+        if 'Sentiment V2' in df.columns:
+            df['Sentiment'] = df['Sentiment V2']
+        elif 'Sentiment' not in df.columns:
+            df['Sentiment'] = 'neutral'
+        
+        # Ensure Category column exists
+        if 'Category' not in df.columns:
+            df['Category'] = 'General'
+        
+        # Ensure Reasoning column exists
+        if 'Reasoning' not in df.columns:
+            df['Reasoning'] = 'Analysis pending'
+        
+        # Filter out rows with invalid dates
+        df = df.dropna(subset=['Date'])
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"Error loading data from MongoDB: {e}")
+        return pd.DataFrame()
 
 # Enhanced stop words
-# Make sure these are downloaded
-nltk.download('wordnet')
-nltk.download('omw-1.4')
-nltk.download('stopwords')
+try:
+    nltk.download('wordnet', quiet=True)
+    nltk.download('omw-1.4', quiet=True)
+    nltk.download('stopwords', quiet=True)
+except:
+    pass
 
 # Custom stop words
 custom_stop_words = set([
     'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests',
     'could', 'will', 'may', 'can', 'would', 'should', 'might'
 ])
-stop_words = set(stopwords.words('english')).union(custom_stop_words)
+
+try:
+    stop_words = set(stopwords.words('english')).union(custom_stop_words)
+except:
+    stop_words = custom_stop_words
 
 def preprocess(text):
-    lemmatizer = WordNetLemmatizer()
-    text = text.lower()
-    tokens = re.findall(r'\b[a-z]+\b', text)
-    return ' '.join([lemmatizer.lemmatize(token) for token in tokens if token not in stop_words and len(token) > 2])
+    try:
+        lemmatizer = WordNetLemmatizer()
+        text = str(text).lower()
+        tokens = re.findall(r'\b[a-z]+\b', text)
+        return ' '.join([lemmatizer.lemmatize(token) for token in tokens if token not in stop_words and len(token) > 2])
+    except:
+        return str(text).lower()
 
 def get_top_phrases(text_series, stop_words, top_n=5, ngram_range=(1, 2)):
-    cleaned = text_series.dropna().astype(str).apply(preprocess)
-    vectorizer = CountVectorizer(stop_words=list(stop_words), ngram_range=ngram_range)
-    X = vectorizer.fit_transform(cleaned)
-    sum_words = X.sum(axis=0)
-    words_freq = [(word, int(sum_words[0, idx])) for word, idx in vectorizer.vocabulary_.items()]
-    sorted_words = sorted(words_freq, key=lambda x: x[1], reverse=True)
-    return sorted_words[:top_n]
+    try:
+        cleaned = text_series.dropna().astype(str).apply(preprocess)
+        if len(cleaned) == 0:
+            return []
+        
+        vectorizer = CountVectorizer(stop_words=list(stop_words), ngram_range=ngram_range)
+        X = vectorizer.fit_transform(cleaned)
+        sum_words = X.sum(axis=0)
+        words_freq = [(word, int(sum_words[0, idx])) for word, idx in vectorizer.vocabulary_.items()]
+        sorted_words = sorted(words_freq, key=lambda x: x[1], reverse=True)
+        return sorted_words[:top_n]
+    except:
+        return []
 
 def plotly_donut(sentiments, title):
+    if len(sentiments) == 0:
+        # Create empty chart
+        fig = go.Figure(data=[go.Pie(labels=[], values=[])])
+        fig.update_layout(title_text=f"{title} - No Data", margin=dict(t=40, b=0, l=0, r=0), 
+                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        return fig
+    
     counts = sentiments.value_counts()
     labels = counts.index.tolist()
     values = counts.tolist()
 
-    # Define custom colors — assuming 2 classes: negative, positive
+    # Define custom colors
     color_map = {
         'bearish': 'darkred',
-        'bullish': 'darkgreen'
+        'bullish': 'darkgreen',
+        'neutral': 'gray'
     }
-    # Fallback to default if label not in color_map
-    colors = [color_map.get(label, 'gray') for label in labels]
+    colors = [color_map.get(label, 'lightblue') for label in labels]
 
     fig = go.Figure(data=[go.Pie(
         labels=labels,
@@ -310,13 +424,20 @@ def plotly_donut(sentiments, title):
         hoverinfo='label+value',
         marker=dict(colors=colors)
     )])
-    fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0), 
+                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
 def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
     """Create a time series chart showing net bullish sentiment (bullish - bearish) by day"""
+    if len(df) == 0:
+        fig = go.Figure()
+        fig.update_layout(title=f"{title} - No Data", paper_bgcolor='rgba(0,0,0,0)', 
+                         plot_bgcolor='rgba(0,0,0,0)')
+        return fig
+    
     # Group by date and sentiment, count occurrences
-    daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment V2']).size().unstack(fill_value=0)
+    daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment']).size().unstack(fill_value=0)
     
     # Calculate net sentiment (bullish - bearish)
     if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
@@ -363,42 +484,77 @@ def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
     
     return fig
 
-if os.path.exists(file_path):
-    df = pd.read_excel(file_path)
-    df['Date'] = pd.to_datetime(df['Date'])
+# Load data
+with st.spinner('🔄 Connecting to MongoDB and loading data...'):
+    df = load_data()
 
-    # Sidebar for controls
-    with st.sidebar:
-        st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
-        
-        # Date range picker
-        min_date = df['Date'].max() - timedelta(days=90)
-        max_date = df['Date'].max()
+# Connection status
+if len(df) > 0:
+    st.markdown('<div class="connection-status connection-success">✅ Successfully connected to MongoDB</div>', 
+                unsafe_allow_html=True)
+else:
+    st.markdown('<div class="connection-status connection-error">❌ No data available or connection failed</div>', 
+                unsafe_allow_html=True)
+    st.stop()
+
+# Sidebar for controls
+with st.sidebar:
+    st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
+    
+    # Date range picker
+    if len(df) > 0:
+        min_date = df['Date'].min().date()
+        max_date = df['Date'].max().date()
+        default_start = max(min_date, max_date - timedelta(days=90))
         
         st.markdown("**📅 Date Range**")
         start_date, end_date = st.date_input(
             "Select date range:",
-            value=(min_date, max_date),
+            value=(default_start, max_date),
             min_value=min_date,
             max_value=max_date,
             label_visibility="collapsed"
         )
         
         st.markdown("**🎯 Filters**")
+        
+        # Category filter
+        categories = sorted(df['Category'].dropna().unique())
+        selected_categories = st.multiselect(
+            "Select categories:",
+            categories,
+            default=categories,
+            label_visibility="collapsed"
+        )
+        
         filter_sentiments = st.checkbox(
             "Show only Bullish and Bearish sentiment", 
             value=True
         )
+    else:
+        st.markdown("No data available for filtering")
+        start_date = end_date = datetime.now().date()
+        selected_categories = []
+        filter_sentiments = True
 
-    # Apply filtering
+# Apply filtering
+if len(df) > 0:
+    # Date filter
+    df_filtered = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+    
+    # Category filter
+    if selected_categories:
+        df_filtered = df_filtered[df_filtered['Category'].isin(selected_categories)]
+    
+    # Sentiment filter
     if filter_sentiments:
-        df = df[df['Sentiment V2'].isin(['bullish', 'bearish'])]
-
-    # Create filtered datasets
-    df_selected = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
-    df_3d = df[df['Date'] >= datetime.now() - timedelta(days=3)]
-    df_7d = df[df['Date'] >= datetime.now() - timedelta(days=7)]
-    df_30d = df[df['Date'] >= datetime.now() - timedelta(days=30)]
+        df_filtered = df_filtered[df_filtered['Sentiment'].isin(['bullish', 'bearish'])]
+    
+    # Create time-based datasets
+    now = datetime.now()
+    df_3d = df_filtered[df_filtered['Date'] >= now - timedelta(days=3)]
+    df_7d = df_filtered[df_filtered['Date'] >= now - timedelta(days=7)]
+    df_30d = df_filtered[df_filtered['Date'] >= now - timedelta(days=30)]
 
     # Key metrics section
     st.markdown('<div class="section-header">📊 SENTIMENT OVERVIEW</div>', unsafe_allow_html=True)
@@ -407,7 +563,7 @@ if os.path.exists(file_path):
     col1, col2, col3, col4 = st.columns(4)
     
     datasets = [
-        (df_selected, "Selected Range", col1),
+        (df_filtered, "Selected Range", col1),
         (df_3d, "Last 3 Days", col2),
         (df_7d, "Last 7 Days", col3),
         (df_30d, "Last 30 Days", col4)
@@ -416,47 +572,48 @@ if os.path.exists(file_path):
     for data, period, col in datasets:
         with col:
             # Chart
-            fig = plotly_donut(data['Sentiment V2'], period)
+            fig = plotly_donut(data['Sentiment'], period)
             st.plotly_chart(fig, use_container_width=True)
             
             # Top words
-            top_words = get_top_phrases(data['Reasoning'], stop_words)
-            if top_words:
-                for word, count in top_words:
-                    st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            if len(data) > 0:
+                top_words = get_top_phrases(data['Reasoning'], stop_words)
+                if top_words:
+                    for word, count in top_words:
+                        st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
 
     # Time series chart section
     st.markdown('<div class="section-header">📈 NET SENTIMENT TREND</div>', unsafe_allow_html=True)
     
-    if len(df_selected) > 0:
-        net_sentiment_fig = create_net_sentiment_chart(df_selected, "Net Bullish Sentiment - Selected Date Range")
+    if len(df_filtered) > 0:
+        net_sentiment_fig = create_net_sentiment_chart(df_filtered, "Net Bullish Sentiment - Selected Date Range")
         st.plotly_chart(net_sentiment_fig, use_container_width=True)
     else:
-        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected date range to display trend chart.</div>', unsafe_allow_html=True)
-
+        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters to display trend chart.</div>', unsafe_allow_html=True)
 
     # News feed section
     st.markdown('<div class="section-header">📰 SENTIMENT ANALYSIS FEED</div>', unsafe_allow_html=True)
     
-    filtered_df = df_selected[['Date', 'Title', 'Sentiment V2', 'Link', 'Reasoning']].sort_values('Date', ascending=False)
-    
-    if len(filtered_df) == 0:
-        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected date range.</div>', unsafe_allow_html=True)
+    if len(df_filtered) == 0:
+        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters.</div>', unsafe_allow_html=True)
     else:
-        for _, row in filtered_df.iterrows():
-            sentiment_class = f"sentiment-{row['Sentiment V2']}" if row['Sentiment V2'] in ['bullish', 'bearish'] else 'sentiment-neutral'
+        # Sort by date descending
+        display_df = df_filtered.sort_values('Date', ascending=False)
+        
+        for _, row in display_df.iterrows():
+            sentiment_class = f"sentiment-{row['Sentiment']}" if row['Sentiment'] in ['bullish', 'bearish'] else 'sentiment-neutral'
             
             news_html = f'''
             <div class="news-item">
                 <div class="news-header">
                     <div class="news-title">{row['Title']}</div>
                     <div class="news-meta">
-                        <span class="sentiment-badge {sentiment_class}">{row['Sentiment V2'].upper()}</span>
+                        <span class="category-badge">{row.get('Category', 'General')}</span>
+                        <span class="sentiment-badge {sentiment_class}">{row['Sentiment'].upper()}</span>
                         <div class="news-date">📅 {row['Date'].strftime('%m/%d/%y')}</div>
             '''
             
-            if pd.notna(row['Link']):
+            if pd.notna(row.get('Link', '')):
                 news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read</a>'
             
             news_html += f'''
@@ -464,16 +621,12 @@ if os.path.exists(file_path):
                 </div>
                 <div class="reasoning-text">
                     <span class="reasoning-label">💡 Analysis:</span>
-                    {row['Reasoning']}
+                    {row.get('Reasoning', 'Analysis not available')}
                 </div>
             </div>
             '''
             
             st.markdown(news_html, unsafe_allow_html=True)
-
-else:
-    st.error(f"❌ Data file not found: {file_path}")
-    st.markdown("Please ensure the sentiment data file is available in the application directory.")
 
 # Footer
 st.markdown("---")
