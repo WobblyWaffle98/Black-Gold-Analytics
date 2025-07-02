@@ -274,6 +274,29 @@ st.markdown("""
             font-size: 0.95rem;
         }
     }
+            
+    /* Refresh button styling */
+    .refresh-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        background: linear-gradient(45deg, #FFD700, #FFC107);
+        color: #000000;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 20px;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .refresh-button:hover {
+        background: linear-gradient(45deg, #FFC107, #B8860B);
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+    }        
 
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
@@ -344,6 +367,12 @@ def load_data():
     except Exception as e:
         st.error(f"Error loading data from MongoDB: {e}")
         return pd.DataFrame()
+
+# Add refresh functionality
+def refresh_data():
+    """Clear cache and reload data"""
+    load_data.clear()
+    st.rerun()
 
 # Enhanced stop words
 try:
@@ -491,6 +520,15 @@ else:
 
 # Sidebar for controls
 with st.sidebar:
+    st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
+    
+    # Add refresh button at the top of sidebar
+    if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
+        with st.spinner('🔄 Refreshing data from MongoDB...'):
+            load_data.clear()
+            st.rerun()
+    
+    st.markdown("---")
     st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
     
     # Date range picker
