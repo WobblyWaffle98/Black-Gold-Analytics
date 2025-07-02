@@ -294,94 +294,13 @@ st.set_page_config(
 st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_allow_html=True)
 
 # MongoDB connection configuration
-@st.cache_resource
-def init_connection():
-    # Try multiple connection approaches
-    connection_strings = [
-        # Original connection string with additional SSL options
-        "mongodb+srv://harithzahrin:oMkiAdQMHua7T70I@blackgoldanalytics.caumk6v.mongodb.net/?retryWrites=true&w=majority&appName=BlackGoldAnalytics&ssl=true&ssl_cert_reqs=CERT_NONE",
-        
-        # Alternative with explicit SSL settings
-        "mongodb+srv://harithzahrin:oMkiAdQMHua7T70I@blackgoldanalytics.caumk6v.mongodb.net/?retryWrites=true&w=majority&appName=BlackGoldAnalytics&tls=true&tlsAllowInvalidCertificates=true",
-        
-        # Fallback without SSL verification
-        "mongodb+srv://harithzahrin:oMkiAdQMHua7T70I@blackgoldanalytics.caumk6v.mongodb.net/?retryWrites=true&w=majority&appName=BlackGoldAnalytics&ssl=false"
-    ]
-    
-    for i, uri in enumerate(connection_strings):
-        try:
-            st.info(f"Attempting connection method {i+1}...")
-            
-            # Different client configurations
-            if i == 0:
-                # Standard connection with SSL cert bypass
-                client = MongoClient(
-                    uri, 
-                    server_api=ServerApi('1'),
-                    serverSelectionTimeoutMS=10000,
-                    connectTimeoutMS=10000,
-                    socketTimeoutMS=10000,
-                    tlsAllowInvalidCertificates=True
-                )
-            elif i == 1:
-                # With explicit TLS settings
-                client = MongoClient(
-                    uri,
-                    server_api=ServerApi('1'),
-                    serverSelectionTimeoutMS=15000,
-                    connectTimeoutMS=15000,
-                    socketTimeoutMS=15000,
-                    tls=True,
-                    tlsAllowInvalidCertificates=True,
-                    tlsAllowInvalidHostnames=True
-                )
-            else:
-                # Basic connection without SSL
-                client = MongoClient(
-                    uri,
-                    serverSelectionTimeoutMS=20000,
-                    connectTimeoutMS=20000,
-                    socketTimeoutMS=20000
-                )
-            
-            # Test the connection
-            client.admin.command('ping')
-            st.success(f"✅ Connected successfully using method {i+1}")
-            return client
-            
-        except Exception as e:
-            st.warning(f"Connection method {i+1} failed: {str(e)[:100]}...")
-            continue
-    
-    # If all methods fail, try one more approach with environment variables
-    try:
-        import ssl
-        st.info("Trying final connection method with custom SSL context...")
-        
-        client = MongoClient(
-            "mongodb+srv://harithzahrin:oMkiAdQMHua7T70I@blackgoldanalytics.caumk6v.mongodb.net/?retryWrites=true&w=majority&appName=BlackGoldAnalytics",
-            server_api=ServerApi('1'),
-            serverSelectionTimeoutMS=30000,
-            connectTimeoutMS=30000,
-            socketTimeoutMS=30000,
-            ssl=True,
-            ssl_cert_reqs=ssl.CERT_NONE,
-            ssl_match_hostname=False
-        )
-        
-        client.admin.command('ping')
-        st.success("✅ Connected successfully using custom SSL context")
-        return client
-        
-    except Exception as e:
-        st.error(f"All connection methods failed. Last error: {e}")
-        st.info("Please check your MongoDB Atlas configuration and network connectivity.")
-        return None
+
+uri = st.secrets.db_credentials.url
 
 # Load data from MongoDB
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+@st.cache_data()  # Cache for 5 minutes
 def load_data():
-    client = init_connection()
+    client = MongoClient(uri, server_api=ServerApi('1'))
     if client is None:
         return pd.DataFrame()
     
