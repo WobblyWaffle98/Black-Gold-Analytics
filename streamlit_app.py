@@ -11,6 +11,7 @@ from nltk.corpus import stopwords
 import nltk
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+import yfinance as yf
 
 # Custom CSS for black and gold theme with compact news layout
 st.markdown("""
@@ -372,6 +373,7 @@ def load_data():
 def refresh_data():
     """Clear cache and reload data"""
     load_data.clear()
+    load_brent_data.clear()
     st.rerun()
 
 # Enhanced stop words
@@ -505,6 +507,46 @@ def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
     
     return fig
 
+@st.cache_data()
+def load_brent_data(start_date, end_date):
+    try:
+        # Fetch Brent crude oil data (ticker: BZ=F)
+        brent = yf.download('BZ=F', start=start_date, end=end_date, progress=False)
+        if brent.empty:
+            return pd.DataFrame()
+        
+        # Reset index to get date as column
+        brent = brent.reset_index()
+        brent['Date'] = pd.to_datetime(brent['Date'])
+        
+        return brent
+    except Exception as e:
+        return pd.DataFrame()
+
+def create_brent_fig(brent_data):
+    # Convert Date column to datetime
+    brent_data['Date'] = pd.to_datetime(brent_data['Date'])
+
+    # Create the figure
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=brent_data['Date'],
+        y=brent_data['Close'],
+        mode='lines+markers',
+        name='Close Price',
+        line=dict(color='royalblue', width=2),
+        marker=dict(size=6)
+    ))
+
+    # Customize layout
+    fig.update_layout(
+        title='Brent Oil Closing Prices',
+        xaxis_title='Date',
+        yaxis_title='Close Price (USD)',
+        template='plotly_white'
+    )
+
 # Load data
 with st.spinner('🔄 Connecting to MongoDB and loading data...'):
     df = load_data()
@@ -620,6 +662,9 @@ if len(df) > 0:
         st.plotly_chart(net_sentiment_fig, use_container_width=True)
     else:
         st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters to display trend chart.</div>', unsafe_allow_html=True)
+
+    st.plotly_chart(create_brent_fig(load_brent_data(start_date,end_date)))
+
 
     # News feed section
     st.markdown('<div class="section-header">📰 SENTIMENT ANALYSIS FEED</div>', unsafe_allow_html=True)
