@@ -666,6 +666,7 @@ if len(df) > 0:
         st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters to display trend chart.</div>', unsafe_allow_html=True)
 
     brent_data=load_brent_data(start_date,end_date)
+    st.dataframe(brent_data)
     st.plotly_chart(create_brent_fig(brent_data))
 
 
