@@ -657,7 +657,7 @@ if len(df) > 0:
     st.markdown('<div class="section-header">📈 NET SENTIMENT vs BRENT CRUDE OIL PRICE</div>', unsafe_allow_html=True)
     
     if len(df_filtered) > 0 or len(brent_data) > 0:
-        combined_fig = create_net_sentiment_with_brent_chart(df_filtered, brent_data)
+        combined_fig = create_separate_net_sentiment_and_brent_charts(df_filtered, brent_data)
         st.plotly_chart(combined_fig, use_container_width=True)
         
         # Display current Brent price if available
