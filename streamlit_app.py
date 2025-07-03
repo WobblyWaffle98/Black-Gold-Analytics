@@ -651,7 +651,7 @@ if len(df) > 0:
     # Time series chart section with Brent overlay
     st.markdown('<div class="section-header">📈 NET SENTIMENT vs BRENT CRUDE OIL PRICE</div>', unsafe_allow_html=True)
     
-    if len(df_filtered) > 0 or len(brent_data) > 0:
+    if len(df_filtered) > 0:
         combined_fig = create_separate_net_sentiment_and_brent_charts(df_filtered, brent_data)
         st.plotly_chart(combined_fig, use_container_width=True)
         
