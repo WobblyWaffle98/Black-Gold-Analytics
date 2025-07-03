@@ -518,27 +518,23 @@ def create_separate_net_sentiment_and_brent_charts(df, brent_data):
     # --- Brent Crude Oil Price Chart ---
     if len(brent_data) > 0:
         brent_fig.add_trace(go.Scatter(
-            x=brent_data['Date'],
-            y=brent_data['Close'],
-            mode='lines',
-            name='Brent Crude Oil Price',
-            line=dict(color='#FFD700', width=3),
-            hovertemplate='<b>%{x}</b><br>Brent Price: $%{y:.2f}<extra></extra>'
-        ))
+        x=brent_data['Date'],
+        y=brent_data['Close'],
+        mode='lines+markers',
+        name='Close Price',
+        line=dict(color='royalblue', width=2),
+        marker=dict(size=6)
+    ))
 
+        # Customize layout
         brent_fig.update_layout(
-            title="Brent Crude Oil Price Over Time",
-            xaxis_title="Date",
-            yaxis_title="Brent Crude Oil Price ($USD)",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='white',
-            margin=dict(t=60, b=40, l=60, r=60),
-            legend=dict(x=0.02, y=0.98)
+            title='Brent Oil Closing Prices',
+            xaxis_title='Date',
+            yaxis_title='Close Price (USD)',
+            template='plotly_white'
         )
 
-        brent_fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
-        brent_fig.update_yaxes(gridcolor='rgba(255,215,0,0.1)')
+    
 
     return sentiment_fig, brent_fig
 
