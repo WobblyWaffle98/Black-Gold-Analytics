@@ -469,22 +469,16 @@ def plotly_donut(sentiments, title):
                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
-def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment and Brent Crude Oil Price"):
-    """Create a subplot chart showing net sentiment and Brent crude oil price separately"""
+def create_separate_net_sentiment_and_brent_charts(df, brent_data):
+    """Create two separate charts: one for net sentiment and one for Brent crude oil price"""
+    
+    sentiment_fig = go.Figure()
+    brent_fig = go.Figure()
 
-    # Create subplots: 2 rows, 1 column
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        subplot_titles=("Net Sentiment", "Brent Crude Oil Price ($USD)")
-    )
-
+    # --- Net Sentiment Chart ---
     if len(df) > 0:
-        # Group by date and sentiment, count occurrences
         daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment']).size().unstack(fill_value=0)
-
-        # Calculate net sentiment (bullish - bearish)
+        
         if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
             daily_sentiment['net_sentiment'] = daily_sentiment['bullish'] - daily_sentiment['bearish']
         elif 'bullish' in daily_sentiment.columns:
@@ -493,49 +487,60 @@ def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment a
             daily_sentiment['net_sentiment'] = -daily_sentiment['bearish']
         else:
             daily_sentiment['net_sentiment'] = 0
-
+        
         colors = ['darkgreen' if x >= 0 else 'darkred' for x in daily_sentiment['net_sentiment']]
 
-        fig.add_trace(go.Bar(
+        sentiment_fig.add_trace(go.Bar(
             x=daily_sentiment.index,
             y=daily_sentiment['net_sentiment'],
             marker_color=colors,
             name='Net Sentiment',
             hovertemplate='<b>%{x}</b><br>Net Sentiment: %{y}<extra></extra>',
             opacity=0.7
-        ), row=1, col=1)
+        ))
 
-        # Add horizontal line at y=0
-        fig.add_hline(
-            y=0, line_dash="dash", line_color="gray", opacity=0.5, row=1, col=1
+        sentiment_fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+
+        sentiment_fig.update_layout(
+            title="Net Sentiment Over Time",
+            xaxis_title="Date",
+            yaxis_title="Net Sentiment (Bullish - Bearish)",
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='white',
+            margin=dict(t=60, b=40, l=60, r=60),
+            legend=dict(x=0.02, y=0.98)
         )
 
+        sentiment_fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
+        sentiment_fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)')
+
+    # --- Brent Crude Oil Price Chart ---
     if len(brent_data) > 0:
-        fig.add_trace(go.Scatter(
+        brent_fig.add_trace(go.Scatter(
             x=brent_data['Date'],
             y=brent_data['Close'],
             mode='lines',
             name='Brent Crude Oil Price',
             line=dict(color='#FFD700', width=3),
             hovertemplate='<b>%{x}</b><br>Brent Price: $%{y:.2f}<extra></extra>'
-        ), row=2, col=1)
+        ))
 
-    # Update layout
-    fig.update_layout(
-        title=title,
-        showlegend=False,
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='white',
-        margin=dict(t=60, b=40, l=60, r=60)
-    )
+        brent_fig.update_layout(
+            title="Brent Crude Oil Price Over Time",
+            xaxis_title="Date",
+            yaxis_title="Brent Crude Oil Price ($USD)",
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='white',
+            margin=dict(t=60, b=40, l=60, r=60),
+            legend=dict(x=0.02, y=0.98)
+        )
 
-    # Style axes
-    fig.update_xaxes(title_text="Date", gridcolor='rgba(255,255,255,0.1)', row=2, col=1)
-    fig.update_yaxes(title_text="Net Sentiment", gridcolor='rgba(255,255,255,0.1)', row=1, col=1)
-    fig.update_yaxes(title_text="Brent Price ($USD)", tickfont=dict(color="#FFD700"), gridcolor='rgba(255,215,0,0.1)', row=2, col=1)
+        brent_fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
+        brent_fig.update_yaxes(gridcolor='rgba(255,215,0,0.1)', tickfont=dict(color="#FFD700"))
 
-    return fig
+    return sentiment_fig, brent_fig
 
 # Load data
 with st.spinner('🔄 Connecting to MongoDB and loading data...'):
