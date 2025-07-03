@@ -12,6 +12,7 @@ import nltk
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import yfinance as yf
+from plotly.subplots import make_subplots
 
 # Custom CSS for black and gold theme with compact news layout
 st.markdown("""
@@ -468,15 +469,21 @@ def plotly_donut(sentiments, title):
                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
-def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment vs Brent Crude Oil Price"):
-    """Create a dual-axis chart showing net sentiment and Brent crude oil price"""
-    
-    fig = go.Figure()
-    
+def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment and Brent Crude Oil Price"):
+    """Create a subplot chart showing net sentiment and Brent crude oil price separately"""
+
+    # Create subplots: 2 rows, 1 column
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.1,
+        subplot_titles=("Net Sentiment", "Brent Crude Oil Price ($USD)")
+    )
+
     if len(df) > 0:
         # Group by date and sentiment, count occurrences
         daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment']).size().unstack(fill_value=0)
-        
+
         # Calculate net sentiment (bullish - bearish)
         if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
             daily_sentiment['net_sentiment'] = daily_sentiment['bullish'] - daily_sentiment['bearish']
@@ -486,22 +493,23 @@ def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment v
             daily_sentiment['net_sentiment'] = -daily_sentiment['bearish']
         else:
             daily_sentiment['net_sentiment'] = 0
-        
-        # Create colors based on positive/negative values
+
         colors = ['darkgreen' if x >= 0 else 'darkred' for x in daily_sentiment['net_sentiment']]
-        
-        # Add sentiment bar chart
+
         fig.add_trace(go.Bar(
             x=daily_sentiment.index,
             y=daily_sentiment['net_sentiment'],
             marker_color=colors,
             name='Net Sentiment',
-            yaxis='y',
             hovertemplate='<b>%{x}</b><br>Net Sentiment: %{y}<extra></extra>',
             opacity=0.7
-        ))
-    
-    # Add Brent crude oil price line
+        ), row=1, col=1)
+
+        # Add horizontal line at y=0
+        fig.add_hline(
+            y=0, line_dash="dash", line_color="gray", opacity=0.5, row=1, col=1
+        )
+
     if len(brent_data) > 0:
         fig.add_trace(go.Scatter(
             x=brent_data['Date'],
@@ -509,57 +517,24 @@ def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment v
             mode='lines',
             name='Brent Crude Oil Price',
             line=dict(color='#FFD700', width=3),
-            yaxis='y2',
             hovertemplate='<b>%{x}</b><br>Brent Price: $%{y:.2f}<extra></extra>'
-        ))
-    
-    # Add horizontal line at y=0 for sentiment
-    if len(df) > 0:
-        fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-    
-    # Update layout with dual y-axes
+        ), row=2, col=1)
+
+    # Update layout
     fig.update_layout(
         title=title,
-        xaxis_title="Date",
+        showlegend=False,
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         font_color='white',
-        margin=dict(t=60, b=40, l=60, r=60),
-        legend=dict(
-            x=0.02,
-            y=0.98,
-            bgcolor='rgba(0,0,0,0.5)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
-        )
+        margin=dict(t=60, b=40, l=60, r=60)
     )
-    
-    # Configure primary y-axis (sentiment)
-    fig.update_layout(
-        yaxis=dict(
-            title="Net Sentiment (Bullish - Bearish)",
-            side="left",
-            gridcolor='rgba(255,255,255,0.1)',
-            zeroline=True,
-            zerolinecolor='rgba(255,255,255,0.3)',
-            zerolinewidth=1
-        )
-    )
-    
-    # Configure secondary y-axis (Brent price)
-    fig.update_layout(
-        yaxis2=dict(
-            title=dict(text="Brent Crude Oil Price ($USD)", font=dict(color="#FFD700")),
-            side="right",
-            overlaying="y",
-            gridcolor='rgba(255,215,0,0.1)',
-            tickfont=dict(color="#FFD700")
-        )
-    )
-    
-    # Style the x-axis
-    fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
-    
+
+    # Style axes
+    fig.update_xaxes(title_text="Date", gridcolor='rgba(255,255,255,0.1)', row=2, col=1)
+    fig.update_yaxes(title_text="Net Sentiment", gridcolor='rgba(255,255,255,0.1)', row=1, col=1)
+    fig.update_yaxes(title_text="Brent Price ($USD)", tickfont=dict(color="#FFD700"), gridcolor='rgba(255,215,0,0.1)', row=2, col=1)
+
     return fig
 
 # Load data
