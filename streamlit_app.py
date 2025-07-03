@@ -538,7 +538,7 @@ def create_separate_net_sentiment_and_brent_charts(df, brent_data):
         )
 
         brent_fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
-        brent_fig.update_yaxes(gridcolor='rgba(255,215,0,0.1)', tickfont=dict(color="#FFD700"))
+        brent_fig.update_yaxes(gridcolor='rgba(255,215,0,0.1)')
 
     return sentiment_fig, brent_fig
 
