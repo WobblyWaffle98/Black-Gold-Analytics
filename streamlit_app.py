@@ -11,8 +11,6 @@ from nltk.corpus import stopwords
 import nltk
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-import yfinance as yf
-from plotly.subplots import make_subplots
 
 # Custom CSS for black and gold theme with compact news layout
 st.markdown("""
@@ -319,6 +317,7 @@ st.set_page_config(
 st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_allow_html=True)
 
 # MongoDB connection configuration
+
 uri = st.secrets.db_credentials.url
 
 # Load data from MongoDB
@@ -369,29 +368,10 @@ def load_data():
         st.error(f"Error loading data from MongoDB: {e}")
         return pd.DataFrame()
 
-# Load Brent crude oil price data
-@st.cache_data()
-def load_brent_data(start_date, end_date):
-    try:
-        # Fetch Brent crude oil data (ticker: BZ=F)
-        brent = yf.download('BZ=F', start=start_date, end=end_date, progress=False)
-        if brent.empty:
-            return pd.DataFrame()
-        
-        # Reset index to get date as column
-        brent = brent.reset_index()
-        brent['Date'] = pd.to_datetime(brent['Date'])
-        
-        return brent
-    except Exception as e:
-        st.error(f"Error loading Brent data: {e}")
-        return pd.DataFrame()
-
 # Add refresh functionality
 def refresh_data():
     """Clear cache and reload data"""
     load_data.clear()
-    load_brent_data.clear()
     st.rerun()
 
 # Enhanced stop words
@@ -469,73 +449,61 @@ def plotly_donut(sentiments, title):
                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
-def create_separate_net_sentiment_and_brent_charts(df, brent_data):
-    """Create two separate charts: one for net sentiment and one for Brent crude oil price"""
+def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
+    """Create a time series chart showing net bullish sentiment (bullish - bearish) by day"""
+    if len(df) == 0:
+        fig = go.Figure()
+        fig.update_layout(title=f"{title} - No Data", paper_bgcolor='rgba(0,0,0,0)', 
+                         plot_bgcolor='rgba(0,0,0,0)')
+        return fig
     
-    sentiment_fig = go.Figure()
-    brent_fig = go.Figure()
-
-    # --- Net Sentiment Chart ---
-    if len(df) > 0:
-        daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment']).size().unstack(fill_value=0)
-        
-        if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
-            daily_sentiment['net_sentiment'] = daily_sentiment['bullish'] - daily_sentiment['bearish']
-        elif 'bullish' in daily_sentiment.columns:
-            daily_sentiment['net_sentiment'] = daily_sentiment['bullish']
-        elif 'bearish' in daily_sentiment.columns:
-            daily_sentiment['net_sentiment'] = -daily_sentiment['bearish']
-        else:
-            daily_sentiment['net_sentiment'] = 0
-        
-        colors = ['darkgreen' if x >= 0 else 'darkred' for x in daily_sentiment['net_sentiment']]
-
-        sentiment_fig.add_trace(go.Bar(
-            x=daily_sentiment.index,
-            y=daily_sentiment['net_sentiment'],
-            marker_color=colors,
-            name='Net Sentiment',
-            hovertemplate='<b>%{x}</b><br>Net Sentiment: %{y}<extra></extra>',
-            opacity=0.7
-        ))
-
-        sentiment_fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-
-        sentiment_fig.update_layout(
-            title="Net Sentiment Over Time",
-            xaxis_title="Date",
-            yaxis_title="Net Sentiment (Bullish - Bearish)",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='white',
-            margin=dict(t=60, b=40, l=60, r=60),
-            legend=dict(x=0.02, y=0.98)
-        )
-
-    sentiment_fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
-    sentiment_fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)')
-
+    # Group by date and sentiment, count occurrences
+    daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment']).size().unstack(fill_value=0)
     
-    brent_fig.add_trace(go.Scatter(
-    x=brent_data['Date'],
-    y=brent_data['Close'],
-    mode='lines+markers',
-    name='Close Price',
-    line=dict(color='royalblue', width=2),
-    marker=dict(size=6)
-))
-
-    # Customize layout
-    brent_fig.update_layout(
-        title='Brent Oil Closing Prices',
-        xaxis_title='Date',
-        yaxis_title='Close Price (USD)',
-        template='plotly_white'
+    # Calculate net sentiment (bullish - bearish)
+    if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
+        daily_sentiment['net_sentiment'] = daily_sentiment['bullish'] - daily_sentiment['bearish']
+    elif 'bullish' in daily_sentiment.columns:
+        daily_sentiment['net_sentiment'] = daily_sentiment['bullish']
+    elif 'bearish' in daily_sentiment.columns:
+        daily_sentiment['net_sentiment'] = -daily_sentiment['bearish']
+    else:
+        daily_sentiment['net_sentiment'] = 0
+    
+    # Create colors based on positive/negative values
+    colors = ['darkgreen' if x >= 0 else 'darkred' for x in daily_sentiment['net_sentiment']]
+    
+    fig = go.Figure()
+    
+    # Add bar chart
+    fig.add_trace(go.Bar(
+        x=daily_sentiment.index,
+        y=daily_sentiment['net_sentiment'],
+        marker_color=colors,
+        name='Net Sentiment',
+        hovertemplate='<b>%{x}</b><br>Net Sentiment: %{y}<extra></extra>'
+    ))
+    
+    # Add horizontal line at y=0
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    
+    # Update layout
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Net Bullish Sentiment (Bullish - Bearish)",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
+        showlegend=False,
+        margin=dict(t=40, b=40, l=40, r=40)
     )
-
     
-
-    return sentiment_fig, brent_fig
+    # Style the axes
+    fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
+    fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)')
+    
+    return fig
 
 # Load data
 with st.spinner('🔄 Connecting to MongoDB and loading data...'):
@@ -558,10 +526,10 @@ with st.sidebar:
     if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
         with st.spinner('🔄 Refreshing data from MongoDB...'):
             load_data.clear()
-            load_brent_data.clear()
             st.rerun()
     
     st.markdown("---")
+    st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
     
     # Date range picker
     if len(df) > 0:
@@ -618,10 +586,6 @@ if len(df) > 0:
     df_7d = df_filtered[df_filtered['Date'] >= now - timedelta(days=7)]
     df_30d = df_filtered[df_filtered['Date'] >= now - timedelta(days=30)]
 
-    # Load Brent crude oil data for the selected date range
-    with st.spinner('📈 Loading Brent crude oil price data...'):
-        brent_data = load_brent_data(start_date, end_date + timedelta(days=1))
-
     # Key metrics section
     st.markdown('<div class="section-header">📊 SENTIMENT OVERVIEW</div>', unsafe_allow_html=True)
     
@@ -648,18 +612,12 @@ if len(df) > 0:
                     for word, count in top_words:
                         st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
 
-    # Time series chart section with Brent overlay
-    st.markdown('<div class="section-header">📈 NET SENTIMENT vs BRENT CRUDE OIL PRICE</div>', unsafe_allow_html=True)
+    # Time series chart section
+    st.markdown('<div class="section-header">📈 NET SENTIMENT TREND</div>', unsafe_allow_html=True)
     
     if len(df_filtered) > 0:
-        combined_fig = create_separate_net_sentiment_and_brent_charts(df_filtered, brent_data)
-        st.plotly_chart(combined_fig, use_container_width=True)
-        
-        # Display current Brent price if available
-        if len(brent_data) > 0:
-            latest_price = brent_data.iloc[-1]['Close']
-            latest_date = pd.to_datetime(brent_data.iloc[-1]['Date']).strftime('%Y-%m-%d')
-            st.markdown(f'<div style="text-align: center; color: #FFD700; font-size: 1.1rem; margin: 1rem 0;">🛢️ Latest Brent Price: <strong>${latest_price:.2f}</strong> (as of {latest_date})</div>', unsafe_allow_html=True)
+        net_sentiment_fig = create_net_sentiment_chart(df_filtered, "Net Bullish Sentiment - Selected Date Range")
+        st.plotly_chart(net_sentiment_fig, use_container_width=True)
     else:
         st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters to display trend chart.</div>', unsafe_allow_html=True)
 
