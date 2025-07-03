@@ -524,6 +524,7 @@ def load_brent_data(start_date, end_date):
         return pd.DataFrame()
 
 def create_brent_fig(brent_data):
+    brent_data.columns = [col[0] if isinstance(col, tuple) else col for col in brent_data.columns]
     # Convert Date column to datetime
     brent_data['Date'] = pd.to_datetime(brent_data['Date'])
 
