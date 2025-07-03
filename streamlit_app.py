@@ -683,7 +683,7 @@ if len(df) > 0:
         # Display current Brent price if available
         if len(brent_data) > 0:
             latest_price = brent_data.iloc[-1]['Close']
-            latest_date = brent_data.iloc[-1]['Date'].strftime('%Y-%m-%d')
+            latest_date = pd.to_datetime(brent_data.iloc[-1]['Date']).strftime('%Y-%m-%d')
             st.markdown(f'<div style="text-align: center; color: #FFD700; font-size: 1.1rem; margin: 1rem 0;">🛢️ Latest Brent Price: <strong>${latest_price:.2f}</strong> (as of {latest_date})</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters to display trend chart.</div>', unsafe_allow_html=True)
