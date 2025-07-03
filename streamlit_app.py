@@ -549,11 +549,10 @@ def create_net_sentiment_with_brent_chart(df, brent_data, title="Net Sentiment v
     # Configure secondary y-axis (Brent price)
     fig.update_layout(
         yaxis2=dict(
-            title="Brent Crude Oil Price ($USD)",
+            title=dict(text="Brent Crude Oil Price ($USD)", font=dict(color="#FFD700")),
             side="right",
             overlaying="y",
             gridcolor='rgba(255,215,0,0.1)',
-            titlefont=dict(color="#FFD700"),
             tickfont=dict(color="#FFD700")
         )
     )
