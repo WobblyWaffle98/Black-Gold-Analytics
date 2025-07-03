@@ -547,6 +547,8 @@ def create_brent_fig(brent_data):
         template='plotly_white'
     )
 
+    return fig
+
 # Load data
 with st.spinner('🔄 Connecting to MongoDB and loading data...'):
     df = load_data()
