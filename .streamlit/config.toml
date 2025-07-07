@@ -34,20 +34,25 @@ style = "normal"
 weight = 400
 
 [theme]
-primaryColor = "#bb5a38"
-backgroundColor = "#f4f3ed"
-secondaryBackgroundColor = "#ecebe3"
-textColor = "#3d3a2a"
-linkColor = "#3d3a2a"
-borderColor = "#d3d2ca"
+# Black Gold color scheme
+primaryColor = "#FFD700"                    # Gold primary color
+backgroundColor = "#0A0A0A"                 # Rich black background
+secondaryBackgroundColor = "#1A1A1A"       # Charcoal secondary background
+textColor = "#FFFFFF"                       # White text
+linkColor = "#FFD700"                       # Gold links
+borderColor = "#FFD700"                     # Gold borders
 showWidgetBorder = true
-baseRadius = "0.6rem"
+baseRadius = "0.8rem"                       # Slightly more rounded corners
 font = "SpaceGrotesk"
 headingFont = "SpaceGroteskHeader"
 codeFont = "SpaceMono"
-codeBackgroundColor = "#ecebe4"
+codeBackgroundColor = "#2D2D2D"            # Dark gray for code blocks
 showSidebarBorder = true
 
 [theme.sidebar]
-backgroundColor = "#e8e7dd"
-secondaryBackgroundColor = "#ecebe3"
+backgroundColor = "#1A1A1A"                 # Dark sidebar background
+secondaryBackgroundColor = "#2D2D2D"       # Darker secondary background
+
+# Force dark mode
+[theme.base]
+dark = true
