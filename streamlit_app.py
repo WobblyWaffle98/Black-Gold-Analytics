@@ -652,7 +652,7 @@ if len(df) > 0:
             
             # Top words
             if len(data) > 0:
-                top_words = get_top_phrases(data['Reasoning'], stop_words)
+                top_words = get_top_phrases(data['Title'], stop_words)
                 if top_words:
                     for word, count in top_words:
                         st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
