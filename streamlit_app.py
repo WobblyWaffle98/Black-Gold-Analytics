@@ -388,7 +388,7 @@ except:
 custom_stop_words = set([
     'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests',
     'could', 'will', 'may', 'can', 'would', 'should', 'might', 'com',
-    'crude','today', 'oilprice'
+    'crude','today', 'oilprice','bloomberg','reuters','price','wsj'
 ])
 
 try:
