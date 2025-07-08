@@ -321,16 +321,44 @@ st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_a
 
 uri = st.secrets.db_credentials.url
 
-# Load data from MongoDB
-@st.cache_data()  # Cache for 5 minutes
-def load_data():
+# Collection selector at the top
+st.markdown('<div class="collection-selector">', unsafe_allow_html=True)
+st.markdown('<h3 style="color: #FFD700; margin-bottom: 1rem;">🗄️ Select Data Source</h3>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    collection_choice = st.selectbox(
+        "Choose Analysis Model:",
+        options=["Groq Analysis", "Gemini Analysis"],
+        index=0,
+        help="Select which AI model's analysis you want to view"
+    )
+
+with col2:
+    # Show collection info
+    if collection_choice == "Groq Analysis":
+        st.markdown('<div class="collection-info">🤖 <strong>Groq Analysis:</strong> Fast, efficient sentiment analysis using Groq\'s AI models</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="collection-info">🧠 <strong>Gemini Analysis:</strong> Advanced sentiment analysis using Google\'s Gemini AI</div>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Load data from MongoDB based on selected collection
+@st.cache_data()
+def load_data(collection_name):
     client = MongoClient(uri, server_api=ServerApi('1'))
     if client is None:
         return pd.DataFrame()
     
     try:
         db = client['blackgold_db']
-        collection = db['rss_articles']
+        
+        # Choose collection based on selection
+        if collection_name == "Groq Analysis":
+            collection = db['rss_articles']
+        else:  # Gemini Analysis
+            collection = db['rss_articles_gemini']
         
         # Fetch all documents
         cursor = collection.find({})
@@ -580,9 +608,9 @@ def prepare_csv_data(df):
     
     return csv_df
 
-# Load data
-with st.spinner('🔄 Connecting to MongoDB and loading data...'):
-    df = load_data()
+# Load data based on selected collection
+with st.spinner(f'🔄 Loading data from {collection_choice}...'):
+    df = load_data(collection_choice)
 
 # Connection status
 if len(df) > 0:
@@ -600,7 +628,7 @@ with st.sidebar:
     
     # Add refresh button at the top of sidebar
     if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
-        with st.spinner('🔄 Refreshing data from MongoDB...'):
+        with st.spinner(f'🔄 Refreshing data from {collection_choice}...'):
             load_data.clear()
             st.rerun()
     
