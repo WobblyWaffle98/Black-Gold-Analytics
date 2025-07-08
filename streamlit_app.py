@@ -551,6 +551,35 @@ def create_brent_fig(brent_data):
 
     return fig
 
+# Function to prepare CSV data for download
+def prepare_csv_data(df):
+    """Prepare dataframe for CSV download by cleaning and formatting"""
+    if df.empty:
+        return pd.DataFrame()
+    
+    # Create a copy to avoid modifying original data
+    csv_df = df.copy()
+    
+    # Remove MongoDB ObjectId column if it exists
+    if '_id' in csv_df.columns:
+        csv_df = csv_df.drop('_id', axis=1)
+    
+    # Format date column
+    if 'Date' in csv_df.columns:
+        csv_df['Date'] = csv_df['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Reorder columns for better readability
+    preferred_order = ['Date', 'Title', 'Category', 'Sentiment', 'Reasoning', 'Link']
+    
+    # Get existing columns in preferred order, then add any remaining columns
+    existing_preferred = [col for col in preferred_order if col in csv_df.columns]
+    remaining_cols = [col for col in csv_df.columns if col not in preferred_order]
+    
+    final_columns = existing_preferred + remaining_cols
+    csv_df = csv_df[final_columns]
+    
+    return csv_df
+
 # Load data
 with st.spinner('🔄 Connecting to MongoDB and loading data...'):
     df = load_data()
@@ -564,6 +593,7 @@ else:
                 unsafe_allow_html=True)
     st.stop()
 
+
 # Sidebar for controls
 with st.sidebar:
     st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
@@ -575,23 +605,38 @@ with st.sidebar:
             st.rerun()
     
     st.markdown("---")
-    st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
     
-    # Date range picker
+    # Date range picker - SEPARATE START AND END DATE
     if len(df) > 0:
         min_date = df['Date'].min().date()
         max_date = df['Date'].max().date()
         default_start = max(min_date, max_date - timedelta(days=90))
         
         st.markdown("**📅 Date Range**")
-        start_date, end_date = st.date_input(
-            "Select date range:",
-            value=(default_start, max_date),
+        
+        # Separate start and end date inputs
+        start_date = st.date_input(
+            "Start Date:",
+            value=default_start,
             min_value=min_date,
             max_value=max_date,
-            label_visibility="collapsed"
+            key="start_date"
         )
         
+        end_date = st.date_input(
+            "End Date:",
+            value=max_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="end_date"
+        )
+        
+        # Validate date range
+        if start_date > end_date:
+            st.error("Start date must be before end date!")
+            st.stop()
+        
+        st.markdown("---")
         st.markdown("**🎯 Filters**")
         
         # Category filter
@@ -607,11 +652,51 @@ with st.sidebar:
             "Show only Bullish and Bearish sentiment", 
             value=True
         )
+        
+        st.markdown("---")
+        
+        # CSV Download Section
+        st.markdown("**📥 DOWNLOAD DATA**")
+        
+        # Apply same filtering logic for download
+        df_for_download = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+        
+        if selected_categories:
+            df_for_download = df_for_download[df_for_download['Category'].isin(selected_categories)]
+        
+        if filter_sentiments:
+            df_for_download = df_for_download[df_for_download['Sentiment'].isin(['bullish', 'bearish'])]
+        
+        # Prepare CSV data
+        csv_data = prepare_csv_data(df_for_download)
+        
+        if not csv_data.empty:
+            csv_string = csv_data.to_csv(index=False)
+            
+            # Generate filename with date range
+            filename = f"blackgold_sentiment_{start_date.strftime('%Y%m%d')}_to_{end_date.strftime('%Y%m%d')}.csv"
+            
+            st.download_button(
+                label=f"📥 Download CSV ({len(csv_data)} records)",
+                data=csv_string,
+                file_name=filename,
+                mime="text/csv",
+                use_container_width=True,
+                key="download_csv"
+            )
+            
+            # Show download info
+            st.markdown(f"**Records to download:** {len(csv_data)}")
+            st.markdown(f"**Date range:** {start_date} to {end_date}")
+        else:
+            st.markdown("📝 No data available for download with current filters")
+            
     else:
         st.markdown("No data available for filtering")
         start_date = end_date = datetime.now().date()
         selected_categories = []
         filter_sentiments = True
+
 
 # Apply filtering
 if len(df) > 0:
