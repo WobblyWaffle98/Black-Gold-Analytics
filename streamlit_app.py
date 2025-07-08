@@ -325,22 +325,14 @@ uri = st.secrets.db_credentials.url
 st.markdown('<div class="collection-selector">', unsafe_allow_html=True)
 st.markdown('<h3 style="color: #FFD700; margin-bottom: 1rem;">🗄️ Select Data Source</h3>', unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
 
-with col1:
-    collection_choice = st.selectbox(
-        "Choose Analysis Model:",
-        options=["Groq Analysis", "Gemini Analysis"],
-        index=0,
-        help="Select which AI model's analysis you want to view"
-    )
+collection_choice = st.selectbox(
+    "Choose Analysis Model:",
+    options=["Groq Analysis", "Gemini Analysis"],
+    index=0,
+    help="Select which AI model's analysis you want to view"
+)
 
-with col2:
-    # Show collection info
-    if collection_choice == "Groq Analysis":
-        st.markdown('<div class="collection-info">🤖 <strong>Groq Analysis:</strong> Fast, efficient sentiment analysis using Groq\'s AI models</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="collection-info">🧠 <strong>Gemini Analysis:</strong> Advanced sentiment analysis using Google\'s Gemini AI</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
