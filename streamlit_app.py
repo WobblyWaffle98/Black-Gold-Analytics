@@ -494,8 +494,7 @@ def format_weekly_summary_content(content):
 
 # Load and display weekly summary
 st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
-st.markdown('<div class="weekly-summary-header">📊 WEEKLY MARKET SUMMARY</div>', unsafe_allow_html=True)
-
+st.markdown('<div class="section-header">📊 WEEKLY MARKET SUMMARY</div>', unsafe_allow_html=True)
 # Load weekly summary data
 weekly_data = load_weekly_summary()
 
