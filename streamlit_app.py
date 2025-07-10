@@ -510,7 +510,7 @@ if weekly_data['success']:
         
         # Display date
         if weekly_data['date']:
-            date_str = weekly_data['date'].strftime('%B %d, %Y at %I:%M %p')
+            date_str = weekly_data['date'].strftime('%B %d, %Y')
             st.markdown(f'<div class="weekly-summary-date">📅 Last Updated: {date_str}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', unsafe_allow_html=True)
