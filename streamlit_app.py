@@ -54,6 +54,98 @@ st.markdown("""
         text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
     }
 
+    /* Weekly Summary Styling */
+    .weekly-summary {
+        background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
+        border: 2px solid #FFD700;
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 2rem 0;
+        box-shadow: 0 8px 30px rgba(255, 215, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .weekly-summary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(45deg, #FFD700, #FFC107, #FFD700);
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+    }
+
+    .weekly-summary-header {
+        color: #FFD700;
+        font-size: 1.8rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .weekly-summary-content {
+        background: rgba(255, 215, 0, 0.03);
+        border-radius: 10px;
+        padding: 1.5rem;
+        line-height: 1.8;
+        color: #E0E0E0;
+        font-size: 1rem;
+        border-left: 4px solid #FFD700;
+    }
+
+    .weekly-summary-content h3 {
+        color: #FFD700;
+        font-size: 1.2rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+        font-weight: 600;
+    }
+
+    .weekly-summary-content h3:first-child {
+        margin-top: 0;
+    }
+
+    .weekly-summary-content p {
+        margin-bottom: 1rem;
+        text-align: justify;
+    }
+
+    .weekly-summary-date {
+        text-align: center;
+        color: #B0B0B0;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+        font-style: italic;
+    }
+
+    .weekly-summary-loading {
+        text-align: center;
+        color: #B0B0B0;
+        padding: 2rem;
+        font-style: italic;
+    }
+
+    .weekly-summary-error {
+        background: rgba(220, 20, 60, 0.1);
+        border: 1px solid #DC143C;
+        border-radius: 10px;
+        padding: 1rem;
+        color: #FFB6C1;
+        text-align: center;
+        margin: 1rem 0;
+    }
+
     /* Section headers */
     .section-header {
         color: #FFD700;
@@ -274,6 +366,19 @@ st.markdown("""
         .news-title {
             font-size: 0.95rem;
         }
+        
+        .weekly-summary {
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        
+        .weekly-summary-header {
+            font-size: 1.5rem;
+        }
+        
+        .weekly-summary-content {
+            padding: 1rem;
+        }
     }
             
     /* Refresh button styling */
@@ -320,6 +425,102 @@ st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_a
 # MongoDB connection configuration
 
 uri = st.secrets.db_credentials.url
+
+# Function to load weekly summary
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_weekly_summary():
+    """Load the most recent weekly summary from MongoDB"""
+    try:
+        client = MongoClient(uri, server_api=ServerApi('1'))
+        db = client['blackgold_db']
+        collection = db['Weekly_News']
+        
+        # Get the most recent weekly summary
+        latest_summary = collection.find_one(
+            {},
+            sort=[("Date", -1)]  # Sort by date descending to get latest
+        )
+        
+        client.close()
+        
+        if latest_summary:
+            return {
+                'content': latest_summary.get('WeeklyNews', ''),
+                'date': latest_summary.get('Date', datetime.now()),
+                'success': True
+            }
+        else:
+            return {
+                'content': '',
+                'date': None,
+                'success': False,
+                'error': 'No weekly summary found'
+            }
+            
+    except Exception as e:
+        return {
+            'content': '',
+            'date': None,
+            'success': False,
+            'error': str(e)
+        }
+
+# Function to format weekly summary content
+def format_weekly_summary_content(content):
+    """Format the weekly summary content for better display"""
+    if not content:
+        return ""
+    
+    # Split content into sections and format
+    lines = content.split('\n')
+    formatted_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        
+        # Check if line is a header (contains colon and is relatively short)
+        if ':' in line and len(line) < 100:
+            # Check if it's a main section header
+            if any(keyword in line.lower() for keyword in ['overview', 'macroeconomic', 'supply', 'demand', 'key events', 'market implications']):
+                formatted_lines.append(f"### {line}")
+            else:
+                formatted_lines.append(f"**{line}**")
+        else:
+            formatted_lines.append(line)
+    
+    return '\n\n'.join(formatted_lines)
+
+# Load and display weekly summary
+st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
+st.markdown('<div class="weekly-summary-header">📊 WEEKLY MARKET SUMMARY</div>', unsafe_allow_html=True)
+
+# Load weekly summary data
+weekly_data = load_weekly_summary()
+
+if weekly_data['success']:
+    # Format and display content
+    formatted_content = format_weekly_summary_content(weekly_data['content'])
+    
+    if formatted_content:
+        st.markdown('<div class="weekly-summary-content">', unsafe_allow_html=True)
+        st.markdown(formatted_content)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Display date
+        if weekly_data['date']:
+            date_str = weekly_data['date'].strftime('%B %d, %Y at %I:%M %p')
+            st.markdown(f'<div class="weekly-summary-date">📅 Last Updated: {date_str}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', unsafe_allow_html=True)
+else:
+    # Show error message
+    error_msg = weekly_data.get('error', 'Unknown error')
+    st.markdown(f'<div class="weekly-summary-error">⚠️ Unable to load weekly summary: {error_msg}</div>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
 
 # Collection selector at the top
 st.markdown('<div class="collection-selector">', unsafe_allow_html=True)
@@ -394,6 +595,7 @@ def refresh_data():
     """Clear cache and reload data"""
     load_data.clear()
     load_brent_data.clear()
+    load_weekly_summary.clear()
     st.rerun()
 
 # Enhanced stop words
