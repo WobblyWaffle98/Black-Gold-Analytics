@@ -414,7 +414,7 @@ st.markdown("""
 # Page configuration
 st.set_page_config(
     page_title="Black Gold Analytics",
-    page_icon=r'Media\Black_Gold_Icon.png',
+    page_icon=r'Images\Black_Gold_Icon.png',
     layout="wide",
     initial_sidebar_state="collapsed"
 )
