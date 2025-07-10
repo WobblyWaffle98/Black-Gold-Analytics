@@ -502,7 +502,6 @@ if weekly_data['success']:
     formatted_content = format_weekly_summary_content(weekly_data['content'])
     
     if formatted_content:
-        st.markdown('<div class="weekly-summary-content">', unsafe_allow_html=True)
         st.markdown(formatted_content)
         st.markdown('</div>', unsafe_allow_html=True)
         
