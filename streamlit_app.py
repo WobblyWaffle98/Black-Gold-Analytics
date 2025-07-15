@@ -408,6 +408,36 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
+            
+    /* Search bar styling */
+    .search-container {
+        background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
+        border: 2px solid #FFD700;
+        border-radius: 15px;
+        padding: 1rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+    }
+
+    .stTextInput > div > div > input {
+        background: rgba(255, 215, 0, 0.05) !important;
+        border: 1px solid #FFD700 !important;
+        color: #FFFFFF !important;
+        border-radius: 10px !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 1rem !important;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: #FFC107 !important;
+        box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2) !important;
+    }
+
+    .stTextInput > label {
+        color: #FFD700 !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.5rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -991,40 +1021,69 @@ if len(df) > 0:
 
     # News feed section
     st.markdown('<div class="section-header">📰 SENTIMENT ANALYSIS FEED</div>', unsafe_allow_html=True)
-    
+
     if len(df_filtered) == 0:
         st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters.</div>', unsafe_allow_html=True)
     else:
+        # Add search functionality
+        st.markdown('<div class="search-container">', unsafe_allow_html=True)
+        search_query = st.text_input(
+            "🔍 Search news articles:",
+            placeholder="Enter keywords to search titles, categories, or analysis...",
+            key="news_search"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
         # Sort by date descending
         display_df = df_filtered.sort_values('Date', ascending=False)
         
-        for _, row in display_df.iterrows():
-            sentiment_class = f"sentiment-{row['Sentiment']}" if row['Sentiment'] in ['bullish', 'bearish'] else 'sentiment-neutral'
+        # Apply search filter if search query is provided
+        if search_query:
+            search_query = search_query.lower()
+            mask = (
+                display_df['Title'].str.lower().str.contains(search_query, na=False) |
+                display_df['Category'].str.lower().str.contains(search_query, na=False) |
+                display_df['Reasoning'].str.lower().str.contains(search_query, na=False)
+            )
+            display_df = display_df[mask]
             
-            news_html = f'''
-            <div class="news-item">
-                <div class="news-header">
-                    <div class="news-title">{row['Title']}</div>
-                    <div class="news-meta">
-                        <span class="category-badge">{row.get('Category', 'General')}</span>
-                        <span class="sentiment-badge {sentiment_class}">{row['Sentiment'].upper()}</span>
-                        <div class="news-date">📅 {row['Date'].strftime('%m/%d/%y')}</div>
-            '''
-            
-            if pd.notna(row.get('Link', '')):
-                news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read</a>'
-            
-            news_html += f'''
+            # Show search results count
+            st.markdown(f'<div style="color: #FFD700; margin: 1rem 0; font-weight: 600;">🔍 Found {len(display_df)} articles matching "{search_query}"</div>', unsafe_allow_html=True)
+        
+        # Display filtered results
+        if len(display_df) == 0:
+            if search_query:
+                st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No articles found matching your search criteria.</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters.</div>', unsafe_allow_html=True)
+        else:
+            for _, row in display_df.iterrows():
+                sentiment_class = f"sentiment-{row['Sentiment']}" if row['Sentiment'] in ['bullish', 'bearish'] else 'sentiment-neutral'
+                
+                news_html = f'''
+                <div class="news-item">
+                    <div class="news-header">
+                        <div class="news-title">{row['Title']}</div>
+                        <div class="news-meta">
+                            <span class="category-badge">{row.get('Category', 'General')}</span>
+                            <span class="sentiment-badge {sentiment_class}">{row['Sentiment'].upper()}</span>
+                            <div class="news-date">📅 {row['Date'].strftime('%m/%d/%y')}</div>
+                '''
+                
+                if pd.notna(row.get('Link', '')):
+                    news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read</a>'
+                
+                news_html += f'''
+                        </div>
+                    </div>
+                    <div class="reasoning-text">
+                        <span class="reasoning-label">💡 Analysis:</span>
+                        {row.get('Reasoning', 'Analysis not available')}
                     </div>
                 </div>
-                <div class="reasoning-text">
-                    <span class="reasoning-label">💡 Analysis:</span>
-                    {row.get('Reasoning', 'Analysis not available')}
-                </div>
-            </div>
-            '''
-            
-            st.markdown(news_html, unsafe_allow_html=True)
+                '''
+                
+                st.markdown(news_html, unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
