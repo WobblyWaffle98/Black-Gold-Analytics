@@ -1026,7 +1026,6 @@ if len(df) > 0:
         st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters.</div>', unsafe_allow_html=True)
     else:
         # Add search functionality
-        st.markdown('<div class="search-container">', unsafe_allow_html=True)
         search_query = st.text_input(
             "🔍 Search news articles:",
             placeholder="Enter keywords to search titles, categories, or analysis...",
