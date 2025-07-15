@@ -920,8 +920,36 @@ with st.sidebar:
 # Apply filtering
 if len(df) > 0:
     # Date filter
-    df_filtered = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+
+    start_datetime = pd.to_datetime(start_date)
+    end_datetime = pd.to_datetime(end_date) + timedelta(days=1) - timedelta(seconds=1)  # Include full day
     
+    # Date filter with improved logic
+    df_filtered = df[(df['Date'] >= start_datetime) & (df['Date'] <= end_datetime)]
+
+    # Debug information (optional - remove in production)
+    st.sidebar.markdown("**🔍 Debug Info:**")
+    st.sidebar.write(f"Start: {start_datetime}")
+    st.sidebar.write(f"End: {end_datetime}")
+    st.sidebar.write(f"Total records: {len(df)}")
+    st.sidebar.write(f"Filtered records: {len(df_filtered)}")
+
+    # Additional improvement: Add a "Today Only" quick filter button
+    st.sidebar.markdown("**⚡ Quick Filters:**")
+    if st.sidebar.button("📅 Today Only", use_container_width=True):
+        # Set both start and end date to today
+        today = datetime.now().date()
+        st.session_state.start_date = today
+        st.session_state.end_date = today
+        st.rerun()
+
+    if st.sidebar.button("📅 Last 7 Days", use_container_width=True):
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        st.session_state.start_date = week_ago
+        st.session_state.end_date = today
+        st.rerun()
+
     # Category filter
     if selected_categories:
         df_filtered = df_filtered[df_filtered['Category'].isin(selected_categories)]
