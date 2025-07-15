@@ -934,21 +934,7 @@ if len(df) > 0:
     st.sidebar.write(f"Total records: {len(df)}")
     st.sidebar.write(f"Filtered records: {len(df_filtered)}")
 
-    # Additional improvement: Add a "Today Only" quick filter button
-    st.sidebar.markdown("**⚡ Quick Filters:**")
-    if st.sidebar.button("📅 Today Only", use_container_width=True):
-        # Set both start and end date to today
-        today = datetime.now().date()
-        st.session_state.start_date = today
-        st.session_state.end_date = today
-        st.rerun()
 
-    if st.sidebar.button("📅 Last 7 Days", use_container_width=True):
-        today = datetime.now().date()
-        week_ago = today - timedelta(days=7)
-        st.session_state.start_date = week_ago
-        st.session_state.end_date = today
-        st.rerun()
 
     # Category filter
     if selected_categories:
