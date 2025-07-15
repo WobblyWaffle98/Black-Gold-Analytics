@@ -526,7 +526,7 @@ st.markdown('<h3 style="color: #FFD700; margin-bottom: 1rem;">🗄️ Select Dat
 
 collection_choice = st.selectbox(
     "Choose Analysis Model:",
-    options=["Groq Analysis", "Gemini Analysis"],
+    options=["Gemini Analysis","Groq Analysis"],
     index=0,
     help="Select which AI model's analysis you want to view"
 )
