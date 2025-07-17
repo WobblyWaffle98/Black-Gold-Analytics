@@ -584,6 +584,8 @@ if 'weekly_summary_index' not in st.session_state:
 # Load all weekly summaries
 weekly_data = load_weekly_summaries()
 
+
+
 if weekly_data['success'] and weekly_data['summaries']:
     summaries = weekly_data['summaries']
     total_summaries = len(summaries)
@@ -594,51 +596,12 @@ if weekly_data['success'] and weekly_data['summaries']:
         current_index = 0
         st.session_state.weekly_summary_index = 0
     
-    # Navigation controls
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col1:
-        if st.button("⬅️ Previous", key="prev_summary", 
-                    disabled=(current_index >= total_summaries - 1)):
-            st.session_state.weekly_summary_index = min(current_index + 1, total_summaries - 1)
-            st.rerun()
-    
-    with col2:
-        st.markdown(f'<div class="weekly-nav-info">📄 Summary {current_index + 1} of {total_summaries}</div>', 
-                   unsafe_allow_html=True)
-    
-    with col3:
-        if st.button("Next ➡️", key="next_summary", 
-                    disabled=(current_index <= 0)):
-            st.session_state.weekly_summary_index = max(current_index - 1, 0)
-            st.rerun()
-    
     # Display current summary
     current_summary = summaries[current_index]
     formatted_content = format_weekly_summary_content(current_summary.get('WeeklyNews', ''))
     
     st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
-    
-    if formatted_content:
-        st.markdown(formatted_content)
-        
-        # Display date
-        summary_date = current_summary.get('Date', datetime.now())
-        if isinstance(summary_date, str):
-            try:
-                summary_date = datetime.strptime(summary_date, '%Y-%m-%d %H:%M:%S')
-            except:
-                summary_date = datetime.now()
-        
-        date_str = summary_date.strftime('%B %d, %Y')
-        st.markdown(f'<div class="weekly-summary-date">📅 Week of: {date_str}</div>', 
-                   unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', 
-                   unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
+
     # Optional: Add a dropdown for quick navigation to specific weeks
     if total_summaries > 3:  # Only show dropdown if there are more than 3 summaries
         st.markdown("---")
@@ -668,6 +631,28 @@ if weekly_data['success'] and weekly_data['summaries']:
         if new_index != current_index:
             st.session_state.weekly_summary_index = new_index
             st.rerun()
+    
+    if formatted_content:
+        st.markdown(formatted_content)
+        
+        # Display date
+        summary_date = current_summary.get('Date', datetime.now())
+        if isinstance(summary_date, str):
+            try:
+                summary_date = datetime.strptime(summary_date, '%Y-%m-%d %H:%M:%S')
+            except:
+                summary_date = datetime.now()
+        
+        date_str = summary_date.strftime('%B %d, %Y')
+        st.markdown(f'<div class="weekly-summary-date">📅 Week of: {date_str}</div>', 
+                   unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', 
+                   unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+
 
 else:
     # Show error message
