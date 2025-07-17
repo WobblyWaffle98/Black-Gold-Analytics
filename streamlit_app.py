@@ -438,6 +438,61 @@ st.markdown("""
         font-weight: 600 !important;
         margin-bottom: 0.5rem !important;
     }
+            
+    /* Weekly Summary Navigation Styling */
+    .weekly-nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255, 215, 0, 0.05);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .weekly-nav-info {
+        color: #FFD700;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .weekly-nav-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .nav-button {
+        background: linear-gradient(45deg, #FFD700, #FFC107);
+        color: #000000;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+
+    .nav-button:hover {
+        background: linear-gradient(45deg, #FFC107, #B8860B);
+        transform: translateY(-1px);
+    }
+
+    .nav-button:disabled {
+        background: #666;
+        color: #999;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .summary-counter {
+        color: #B0B0B0;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        text-align: center;
+        font-style: italic;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -458,39 +513,36 @@ uri = st.secrets.db_credentials.url
 
 # Function to load weekly summary
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_weekly_summary():
-    """Load the most recent weekly summary from MongoDB"""
+def load_weekly_summaries():
+    """Load all weekly summaries from MongoDB, sorted by date descending"""
     try:
         client = MongoClient(uri, server_api=ServerApi('1'))
         db = client['blackgold_db']
         collection = db['Weekly_News']
         
-        # Get the most recent weekly summary
-        latest_summary = collection.find_one(
+        # Get all weekly summaries, sorted by date descending
+        summaries = list(collection.find(
             {},
-            sort=[("Date", -1)]  # Sort by date descending to get latest
-        )
+            sort=[("Date", -1)]  # Sort by date descending to get latest first
+        ))
         
         client.close()
         
-        if latest_summary:
+        if summaries:
             return {
-                'content': latest_summary.get('WeeklyNews', ''),
-                'date': latest_summary.get('Date', datetime.now()),
+                'summaries': summaries,
                 'success': True
             }
         else:
             return {
-                'content': '',
-                'date': None,
+                'summaries': [],
                 'success': False,
-                'error': 'No weekly summary found'
+                'error': 'No weekly summaries found'
             }
             
     except Exception as e:
         return {
-            'content': '',
-            'date': None,
+            'summaries': [],
             'success': False,
             'error': str(e)
         }
@@ -524,29 +576,112 @@ def format_weekly_summary_content(content):
 
 # Load and display weekly summary
 st.markdown('<div class="section-header">📊 WEEKLY MARKET SUMMARY</div>', unsafe_allow_html=True)
-# Load weekly summary data
-weekly_data = load_weekly_summary()
 
-if weekly_data['success']:
-    # Format and display content
-    formatted_content = format_weekly_summary_content(weekly_data['content'])
+# Initialize session state for weekly summary navigation
+if 'weekly_summary_index' not in st.session_state:
+    st.session_state.weekly_summary_index = 0
+
+# Load all weekly summaries
+weekly_data = load_weekly_summaries()
+
+if weekly_data['success'] and weekly_data['summaries']:
+    summaries = weekly_data['summaries']
+    total_summaries = len(summaries)
+    current_index = st.session_state.weekly_summary_index
+    
+    # Ensure index is within bounds
+    if current_index >= total_summaries:
+        current_index = 0
+        st.session_state.weekly_summary_index = 0
+    
+    # Navigation controls
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.button("⬅️ Previous", key="prev_summary", 
+                    disabled=(current_index >= total_summaries - 1)):
+            st.session_state.weekly_summary_index = min(current_index + 1, total_summaries - 1)
+            st.rerun()
+    
+    with col2:
+        st.markdown(f'<div class="weekly-nav-info">📄 Summary {current_index + 1} of {total_summaries}</div>', 
+                   unsafe_allow_html=True)
+    
+    with col3:
+        if st.button("Next ➡️", key="next_summary", 
+                    disabled=(current_index <= 0)):
+            st.session_state.weekly_summary_index = max(current_index - 1, 0)
+            st.rerun()
+    
+    # Display current summary
+    current_summary = summaries[current_index]
+    formatted_content = format_weekly_summary_content(current_summary.get('WeeklyNews', ''))
+    
+    st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
     
     if formatted_content:
         st.markdown(formatted_content)
-        st.markdown('</div>', unsafe_allow_html=True)
         
         # Display date
-        if weekly_data['date']:
-            date_str = weekly_data['date'].strftime('%B %d, %Y')
-            st.markdown(f'<div class="weekly-summary-date">📅 Last Updated: {date_str}</div>', unsafe_allow_html=True)
+        summary_date = current_summary.get('Date', datetime.now())
+        if isinstance(summary_date, str):
+            try:
+                summary_date = datetime.strptime(summary_date, '%Y-%m-%d %H:%M:%S')
+            except:
+                summary_date = datetime.now()
+        
+        date_str = summary_date.strftime('%B %d, %Y')
+        st.markdown(f'<div class="weekly-summary-date">📅 Week of: {date_str}</div>', 
+                   unsafe_allow_html=True)
     else:
-        st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', unsafe_allow_html=True)
+        st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', 
+                   unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Optional: Add a dropdown for quick navigation to specific weeks
+    if total_summaries > 3:  # Only show dropdown if there are more than 3 summaries
+        st.markdown("---")
+        
+        # Create options for dropdown
+        dropdown_options = []
+        for i, summary in enumerate(summaries):
+            summary_date = summary.get('Date', datetime.now())
+            if isinstance(summary_date, str):
+                try:
+                    summary_date = datetime.strptime(summary_date, '%Y-%m-%d %H:%M:%S')
+                except:
+                    summary_date = datetime.now()
+            
+            date_str = summary_date.strftime('%B %d, %Y')
+            dropdown_options.append(f"Week of {date_str}")
+        
+        selected_week = st.selectbox(
+            "🗓️ Jump to specific week:",
+            options=dropdown_options,
+            index=current_index,
+            key="week_selector"
+        )
+        
+        # Update index based on selection
+        new_index = dropdown_options.index(selected_week)
+        if new_index != current_index:
+            st.session_state.weekly_summary_index = new_index
+            st.rerun()
+
 else:
     # Show error message
-    error_msg = weekly_data.get('error', 'Unknown error')
-    st.markdown(f'<div class="weekly-summary-error">⚠️ Unable to load weekly summary: {error_msg}</div>', unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
+    
+    if weekly_data['success']:
+        st.markdown('<div class="weekly-summary-loading">📝 No weekly summaries available yet...</div>', 
+                   unsafe_allow_html=True)
+    else:
+        error_msg = weekly_data.get('error', 'Unknown error')
+        st.markdown(f'<div class="weekly-summary-error">⚠️ Unable to load weekly summaries: {error_msg}</div>', 
+                   unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # Collection selector at the top
