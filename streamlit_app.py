@@ -599,8 +599,6 @@ if weekly_data['success'] and weekly_data['summaries']:
     # Display current summary
     current_summary = summaries[current_index]
     formatted_content = format_weekly_summary_content(current_summary.get('WeeklyNews', ''))
-    
-    st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
 
     # Optional: Add a dropdown for quick navigation to specific weeks
     if total_summaries > 3:  # Only show dropdown if there are more than 3 summaries
