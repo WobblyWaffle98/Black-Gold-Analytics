@@ -602,8 +602,6 @@ if weekly_data['success'] and weekly_data['summaries']:
 
     # Optional: Add a dropdown for quick navigation to specific weeks
     if total_summaries > 3:  # Only show dropdown if there are more than 3 summaries
-        st.markdown("---")
-        
         # Create options for dropdown
         dropdown_options = []
         for i, summary in enumerate(summaries):
