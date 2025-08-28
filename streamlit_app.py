@@ -890,7 +890,24 @@ def load_brent_data(start_date, end_date):
         return pd.DataFrame()
 
 def create_brent_fig(brent_data):
+    # Handle empty dataframe
+    if brent_data.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="⚠️ No data available for the selected period",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="red")
+        )
+        fig.update_layout(
+            title="Brent Oil Closing Prices",
+            template="plotly_white"
+        )
+        return fig
+
+    # Normalize column names in case yf returns multi-index
     brent_data.columns = [col[0] if isinstance(col, tuple) else col for col in brent_data.columns]
+
     # Convert Date column to datetime
     brent_data['Date'] = pd.to_datetime(brent_data['Date'])
 
