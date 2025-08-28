@@ -894,7 +894,7 @@ def create_brent_fig(brent_data):
     if brent_data.empty:
         fig = go.Figure()
         fig.add_annotation(
-            text="⚠️ No data available for the selected period",
+            text="⚠️ Connection to Yahoo Finance Failed. Please try again later",
             xref="paper", yref="paper",
             x=0.5, y=0.5, showarrow=False,
             font=dict(size=16, color="red")
