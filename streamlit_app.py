@@ -12,6 +12,7 @@ import nltk
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import yfinance as yf
+from curl_cffi import requests
 
 # Custom CSS for black and gold theme with compact news layout
 st.markdown("""
@@ -874,10 +875,14 @@ def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
     return fig
 
 @st.cache_data()
+
+# Create a curl_cffi session that mimics Chrome
+session = requests.Session(impersonate="chrome")
+
 def load_brent_data(start_date, end_date):
     try:
         # Fetch Brent crude oil data (ticker: BZ=F)
-        brent = yf.download('BZ=F', start=start_date, end=end_date, progress=False)
+        brent = yf.download('BZ=F', start=start_date, end=end_date, session=session)
         if brent.empty:
             return pd.DataFrame()
         
