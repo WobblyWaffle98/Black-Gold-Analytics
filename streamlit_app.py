@@ -876,11 +876,12 @@ def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
 
 @st.cache_data()
 
-# Create a curl_cffi session that mimics Chrome
-session = requests.Session(impersonate="chrome")
+
 
 def load_brent_data(start_date, end_date):
     try:
+        # Create a curl_cffi session that mimics Chrome
+        session = requests.Session(impersonate="chrome")
         # Fetch Brent crude oil data (ticker: BZ=F)
         brent = yf.download('BZ=F', start=start_date, end=end_date, session=session)
         if brent.empty:
@@ -892,6 +893,7 @@ def load_brent_data(start_date, end_date):
         
         return brent
     except Exception as e:
+        print("Error:", e)
         return pd.DataFrame()
 
 def create_brent_fig(brent_data):
