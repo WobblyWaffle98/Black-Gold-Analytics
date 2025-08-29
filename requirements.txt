@@ -8,3 +8,4 @@ nltk
 streamlit_authenticator
 pymongo
 yfinance
+curl_cffi
