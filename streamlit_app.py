@@ -754,8 +754,8 @@ except:
 custom_stop_words = set([
     'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests',
     'could', 'will', 'may', 'can', 'would', 'should', 'might', 'com',
-    'crude','today', 'oilprice','bloomberg','reuters','price','wsj'
-])
+    'crude','today', 'oilprice','bloomberg','reuters','price','wsj', 'say', 'wall', 'street' , 'journal', 'wall street'
+;])
 
 try:
     stop_words = set(stopwords.words('english')).union(custom_stop_words)
