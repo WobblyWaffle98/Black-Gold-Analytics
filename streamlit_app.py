@@ -675,7 +675,7 @@ collection_choice = st.selectbox(
     "Choose Analysis Model:",
     options=["Gemini Analysis","Groq Analysis"],
     index=0,
-    help="Select which AI model's analysis you want to view"
+    help="The default model used is Gemini, a more complex model for sentiment analysis, though an alternative model (Groq) can also be used as a backup or to provide another perspective on market sentiment."
 )
 
 
