@@ -1,1231 +1,505 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-import plotly.graph_objects as go
-import plotly.express as px
+import os
 import re
-from collections import Counter
-from sklearn.feature_extraction.text import CountVectorizer
-from nltk.stem import WordNetLemmatizer
-from nltk.corpus import stopwords
+import html
+from datetime import datetime, timedelta
+
 import nltk
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 import yfinance as yf
 from curl_cffi import requests
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from plotly.subplots import make_subplots
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+from sklearn.feature_extraction.text import CountVectorizer
 
-# Custom CSS for black and gold theme with compact news layout
+# ---------------------------------------------------------------- page setup
+# set_page_config must be the first Streamlit command
+ICON = os.path.join("Images", "Black_Gold_Icon.png")
+st.set_page_config(
+    page_title="Black Gold Analytics",
+    page_icon=ICON if os.path.exists(ICON) else "🛢️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+GOLD, GREEN, RED, GREY = "#F2C14E", "#34D399", "#F87171", "#6B6B6B"
+
 st.markdown("""
 <style>
-    /* Main theme colors */
-    :root {
-        --primary-gold: #FFD700;
-        --secondary-gold: #FFC107;
-        --dark-gold: #B8860B;
-        --rich-black: #0A0A0A;
-        --charcoal: #1A1A1A;
-        --dark-gray: #2D2D2D;
-        --light-gray: #B0B0B0;
-        --accent-gold: #F4D03F;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+:root{--gold:#F2C14E;--gold2:#FFD978;--line:rgba(255,255,255,.09);--mute:#8E8B84;--panel:#0C0C0D;
+--grad:linear-gradient(135deg,#FFE08A,#F2B632 45%,#B8801A)}
+html,body,.stApp{background:#000!important;color:#F4F1E8;font-family:Inter,sans-serif}
+.main .block-container{max-width:1500px;padding:1.5rem 2.5rem 3rem}
+#MainMenu,footer,.stDeployButton{visibility:hidden}
+header[data-testid="stHeader"]{background:transparent}
+[data-testid="stSidebar"]{background:#0A0A0B;border-right:1px solid var(--line)}
+[data-testid="stSidebar"] h2{font-family:Sora,sans-serif;font-size:1.1rem}
 
-    /* App background */
-    .stApp {
-        background: linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 100%);
-        color: #FFFFFF;
-    }
+/* brand + hero */
+.brand{font:700 1.35rem Sora,sans-serif;letter-spacing:-.01em;padding:.4rem 0}
+.brand::before{content:"";display:inline-block;width:15px;height:15px;margin-right:12px;border-radius:50% 0 50% 50%;
+transform:rotate(-45deg);background:var(--grad)}
+.brand span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hl{font:700 clamp(2rem,4vw,3.4rem)/1.05 Sora,sans-serif;letter-spacing:-.03em;margin-top:2.2rem}
+.hero-sub{color:var(--mute);font-size:1rem;margin:.9rem 0 0;max-width:52ch}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);
+border-radius:16px;overflow:hidden;margin-top:2.2rem}
+.stat{background:var(--panel);padding:1.3rem}
+.stat b{display:block;font:700 2.1rem/1.1 Sora,sans-serif;background:var(--grad);-webkit-background-clip:text;
+background-clip:text;color:transparent}
+.stat span{color:var(--mute);font-size:.82rem}
+.stat em{font-style:normal;font-size:.8rem;margin-left:.4rem}
 
-    /* Main container styling */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 95%;
-    }
+/* section titles */
+.sec{font:600 1.5rem Sora,sans-serif;letter-spacing:-.02em;margin:2.6rem 0 .2rem}
+.sec-sub{color:var(--mute);font-size:.88rem;margin-bottom:1rem}
 
-    /* Title styling */
-    .main-title {
-        background: linear-gradient(45deg, #FFD700, #FFC107);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-size: 3rem;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 2rem;
-        text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
-    }
+/* bordered containers become cards */
+[data-testid="stVerticalBlockBorderWrapper"]{background:var(--panel);border:1px solid var(--line)!important;border-radius:16px}
+.week-date{color:var(--gold2);font-size:.85rem;margin-top:1rem}
 
-    /* Weekly Summary Styling */
-    .weekly-summary {
-        background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
-        border: 2px solid #FFD700;
-        border-radius: 15px;
-        padding: 2rem;
-        margin: 2rem 0;
-        box-shadow: 0 8px 30px rgba(255, 215, 0, 0.1);
-        position: relative;
-        overflow: hidden;
-    }
+/* widgets */
+.stButton>button,.stDownloadButton>button{border-radius:999px;border:1px solid var(--gold);background:transparent;
+color:var(--gold2);font-weight:600}
+.stButton>button:hover,.stDownloadButton>button:hover{background:var(--gold);color:#000;border-color:var(--gold)}
+.stButton>button[kind="primary"]{background:var(--grad);color:#000;border:0}
+div[role="radiogroup"]{gap:.4rem}
+div[role="radiogroup"]>label{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:999px;padding:.25rem .9rem}
+div[role="radiogroup"]>label:has(input:checked){background:var(--grad);color:#000;border-color:transparent}
+div[role="radiogroup"]>label>div:first-child{display:none}
+span[data-baseweb="tag"]{background:rgba(242,193,78,.14)!important;color:var(--gold2)!important;border-radius:999px}
+.stTextInput input{border-radius:999px!important;background:rgba(255,255,255,.04)!important;border:1px solid var(--line)!important;
+padding:.7rem 1.1rem!important}
+.stTextInput input:focus{border-color:var(--gold)!important}
 
-    .weekly-summary::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(45deg, #FFD700, #FFC107, #FFD700);
-        animation: shimmer 2s infinite;
-    }
-
-    @keyframes shimmer {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 1; }
-    }
-
-    .weekly-summary-header {
-        color: #FFD700;
-        font-size: 1.8rem;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-    }
-
-    .weekly-summary-content {
-        background: rgba(255, 215, 0, 0.03);
-        border-radius: 10px;
-        padding: 1.5rem;
-        line-height: 1.8;
-        color: #E0E0E0;
-        font-size: 1rem;
-        border-left: 4px solid #FFD700;
-    }
-
-    .weekly-summary-content h3 {
-        color: #FFD700;
-        font-size: 1.2rem;
-        margin-top: 1.5rem;
-        margin-bottom: 0.8rem;
-        font-weight: 600;
-    }
-
-    .weekly-summary-content h3:first-child {
-        margin-top: 0;
-    }
-
-    .weekly-summary-content p {
-        margin-bottom: 1rem;
-        text-align: justify;
-    }
-
-    .weekly-summary-date {
-        text-align: center;
-        color: #B0B0B0;
-        font-size: 0.9rem;
-        margin-top: 1rem;
-        font-style: italic;
-    }
-
-    .weekly-summary-loading {
-        text-align: center;
-        color: #B0B0B0;
-        padding: 2rem;
-        font-style: italic;
-    }
-
-    .weekly-summary-error {
-        background: rgba(220, 20, 60, 0.1);
-        border: 1px solid #DC143C;
-        border-radius: 10px;
-        padding: 1rem;
-        color: #FFB6C1;
-        text-align: center;
-        margin: 1rem 0;
-    }
-
-    /* Section headers */
-    .section-header {
-        color: #FFD700;
-        font-size: 1.5rem;
-        font-weight: 600;
-        border-bottom: 2px solid #FFD700;
-        padding-bottom: 0.5rem;
-        margin: 1.5rem 0;
-    }
-
-    /* Metric cards */
-    .metric-card {
-        background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
-        border: 1px solid #FFD700;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
-    }
-
-    /* Custom checkbox */
-    .stCheckbox > label {
-        color: #FFD700 !important;
-        font-weight: 500;
-    }
-
-    /* Date input styling */
-    .stDateInput > label {
-        color: #FFD700 !important;
-        font-weight: 500;
-    }
-
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
-    }
-
-    /* COMPACT NEWS ITEM STYLING */
-    .news-item {
-        background: linear-gradient(135deg, #1A1A1A 0%, #252525 100%);
-        border-left: 3px solid #FFD700;
-        border-radius: 6px;
-        padding: 0.8rem;
-        margin: 0.5rem 0;
-        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
-        transition: all 0.2s ease;
-        position: relative;
-    }
-
-    .news-item:hover {
-        background: linear-gradient(135deg, #252525 0%, #2D2D2D 100%);
-        transform: translateX(3px);
-        box-shadow: 0 2px 10px rgba(255, 215, 0, 0.1);
-    }
-
-    .news-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 0.5rem;
-        gap: 1rem;
-    }
-
-    .news-title {
-        color: #FFFFFF;
-        font-size: 1rem;
-        font-weight: 600;
-        line-height: 1.3;
-        flex: 1;
-        margin: 0;
-    }
-
-    .news-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        flex-shrink: 0;
-    }
-
-    .news-date {
-        color: #B0B0B0;
-        font-size: 0.8rem;
-        white-space: nowrap;
-    }
-
-    .news-link {
-        background: linear-gradient(45deg, #FFD700, #FFC107);
-        color: #000000 !important;
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        text-decoration: none !important;
-        font-weight: 500;
-        font-size: 0.8rem;
-        transition: all 0.2s ease;
-        white-space: nowrap;
-    }
-
-    .news-link:hover {
-        background: linear-gradient(45deg, #FFC107, #B8860B);
-        transform: scale(1.03);
-    }
-
-    .category-badge {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        font-weight: bold;
-        text-transform: uppercase;
-        font-size: 0.7rem;
-        letter-spacing: 0.3px;
-        min-width: 60px;
-        text-align: center;
-        background: linear-gradient(45deg, #4A90E2, #357ABD);
-        color: white;
-        box-shadow: 0 1px 4px rgba(74, 144, 226, 0.3);
-    }
-
-    .sentiment-badge {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        font-weight: bold;
-        text-transform: uppercase;
-        font-size: 0.7rem;
-        letter-spacing: 0.3px;
-        min-width: 60px;
-        text-align: center;
-    }
-
-    .sentiment-bullish {
-        background: linear-gradient(45deg, #2E8B57, #228B22);
-        color: white;
-        box-shadow: 0 1px 4px rgba(46, 139, 87, 0.3);
-    }
-
-    .sentiment-bearish {
-        background: linear-gradient(45deg, #DC143C, #B22222);
-        color: white;
-        box-shadow: 0 1px 4px rgba(220, 20, 60, 0.3);
-    }
-
-    .reasoning-text {
-        background: rgba(255, 215, 0, 0.03);
-        border-left: 2px solid rgba(255, 215, 0, 0.3);
-        padding: 0.6rem;
-        border-radius: 4px;
-        margin-top: 0.5rem;
-        font-style: italic;
-        color: #D0D0D0;
-        font-size: 0.9rem;
-        line-height: 1.4;
-    }
-
-    .reasoning-label {
-        color: #FFD700;
-        font-weight: 600;
-        font-size: 0.8rem;
-        margin-bottom: 0.3rem;
-        display: block;
-    }
-
-    /* Top words styling */
-    .top-words {
-        background: rgba(255, 215, 0, 0.05);
-        border-radius: 10px;
-        padding: 1rem;
-        margin-top: 1rem;
-    }
-
-    .word-item {
-        background: linear-gradient(45deg, #2D2D2D, #3D3D3D);
-        color: #FFD700;
-        padding: 0.3rem 0.8rem;
-        border-radius: 15px;
-        margin: 0.2rem 0;
-        display: inline-block;
-        font-weight: 500;
-        border: 1px solid rgba(255, 215, 0, 0.3);
-    }
-
-    /* Connection status */
-    .connection-status {
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        font-weight: 500;
-    }
-
-    .connection-success {
-        background: rgba(46, 139, 87, 0.2);
-        border: 1px solid #2E8B57;
-        color: #90EE90;
-    }
-
-    .connection-error {
-        background: rgba(220, 20, 60, 0.2);
-        border: 1px solid #DC143C;
-        color: #FFB6C1;
-    }
-
-    /* Responsive design for mobile */
-    @media (max-width: 768px) {
-        .news-header {
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        
-        .news-meta {
-            align-self: flex-start;
-        }
-        
-        .news-title {
-            font-size: 0.95rem;
-        }
-        
-        .weekly-summary {
-            padding: 1.5rem;
-            margin: 1rem 0;
-        }
-        
-        .weekly-summary-header {
-            font-size: 1.5rem;
-        }
-        
-        .weekly-summary-content {
-            padding: 1rem;
-        }
-    }
-            
-    /* Refresh button styling */
-    .refresh-button {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 1000;
-        background: linear-gradient(45deg, #FFD700, #FFC107);
-        color: #000000;
-        border: none;
-        border-radius: 50px;
-        padding: 12px 20px;
-        font-weight: bold;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .refresh-button:hover {
-        background: linear-gradient(45deg, #FFC107, #B8860B);
-        transform: scale(1.05);
-        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
-    }        
-
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display:none;}
-            
-    /* Search bar styling */
-    .search-container {
-        background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
-        border: 2px solid #FFD700;
-        border-radius: 15px;
-        padding: 1rem;
-        margin: 1rem 0;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
-    }
-
-    .stTextInput > div > div > input {
-        background: rgba(255, 215, 0, 0.05) !important;
-        border: 1px solid #FFD700 !important;
-        color: #FFFFFF !important;
-        border-radius: 10px !important;
-        padding: 0.75rem 1rem !important;
-        font-size: 1rem !important;
-    }
-
-    .stTextInput > div > div > input:focus {
-        border-color: #FFC107 !important;
-        box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2) !important;
-    }
-
-    .stTextInput > label {
-        color: #FFD700 !important;
-        font-weight: 600 !important;
-        margin-bottom: 0.5rem !important;
-    }
-            
-    /* Weekly Summary Navigation Styling */
-    .weekly-nav-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-        padding: 0.5rem 1rem;
-        background: rgba(255, 215, 0, 0.05);
-        border-radius: 10px;
-        border: 1px solid rgba(255, 215, 0, 0.2);
-    }
-
-    .weekly-nav-info {
-        color: #FFD700;
-        font-weight: 600;
-        font-size: 1rem;
-    }
-
-    .weekly-nav-buttons {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .nav-button {
-        background: linear-gradient(45deg, #FFD700, #FFC107);
-        color: #000000;
-        border: none;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-    }
-
-    .nav-button:hover {
-        background: linear-gradient(45deg, #FFC107, #B8860B);
-        transform: translateY(-1px);
-    }
-
-    .nav-button:disabled {
-        background: #666;
-        color: #999;
-        cursor: not-allowed;
-        transform: none;
-    }
-
-    .summary-counter {
-        color: #B0B0B0;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
-        text-align: center;
-        font-style: italic;
-    }
+/* status, chips, feed */
+.status{display:inline-block;padding:.25rem .8rem;border-radius:999px;font-size:.8rem;border:1px solid var(--line)}
+.status.ok{color:#34D399;background:rgba(52,211,153,.1)}
+.status.bad{color:#F87171;background:rgba(248,113,113,.1)}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.1rem .65rem;margin:.15rem .2rem 0 0;
+font-size:.78rem;color:var(--mute)}
+.ring-t{font-weight:600;margin-bottom:.2rem}
+.feed{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.news{display:grid;grid-template-columns:84px 1fr auto;gap:1rem;padding:1.05rem 1.4rem;border-top:1px solid var(--line);
+border-left:3px solid #6B6B6B}
+.news:first-child{border-top:0}
+.news:hover{background:rgba(242,193,78,.04)}
+.news.s-bullish{border-left-color:#34D399}.news.s-bearish{border-left-color:#F87171}
+.n-date{color:var(--mute);font-size:.82rem}
+.n-title{font-weight:600;line-height:1.35}
+.n-why{color:var(--mute);font-size:.86rem;margin-top:.2rem}
+.n-meta{text-align:right;white-space:nowrap}
+.pill{display:inline-block;padding:.1rem .7rem;border-radius:999px;font-size:.74rem;font-weight:600}
+.pill.s-bullish{background:rgba(52,211,153,.14);color:#34D399}
+.pill.s-bearish{background:rgba(248,113,113,.14);color:#F87171}
+.pill.s-neutral{background:rgba(255,255,255,.07);color:var(--mute)}
+.n-cat{display:block;color:var(--mute);font-size:.78rem;margin-top:.3rem}
+.read{display:inline-block;color:var(--gold2)!important;font-size:.8rem;margin-top:.2rem;text-decoration:none}
+.read:hover{text-decoration:underline}
+.foot{text-align:center;color:var(--mute);font-size:.8rem;padding:2.5rem 0 0}
+@media (max-width:768px){.news{grid-template-columns:1fr}.n-meta{text-align:left}.stats{grid-template-columns:1fr}
+.main .block-container{padding:1rem}}
 </style>
 """, unsafe_allow_html=True)
 
-# Page configuration
-st.set_page_config(
-    page_title="Black Gold Analytics",
-    page_icon=r'Images\Black_Gold_Icon.png',
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# Main title with custom styling
-st.markdown('<h1 class="main-title">🛢️ BLACK GOLD ANALYTICS</h1>', unsafe_allow_html=True)
-
-# MongoDB connection configuration
-
-uri = st.secrets.db_credentials.url
-
-# Function to load weekly summary
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_weekly_summaries():
-    """Load all weekly summaries from MongoDB, sorted by date descending"""
+# ---------------------------------------------------------------- NLP setup
+@st.cache_resource
+def setup_nlp():
+    for pkg in ("wordnet", "omw-1.4", "stopwords"):
+        try:
+            nltk.download(pkg, quiet=True)
+        except Exception:
+            pass
+    custom = {
+        'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests', 'could', 'will', 'may', 'can',
+        'would', 'should', 'might', 'com', 'crude', 'today', 'oilprice', 'bloomberg', 'reuters', 'price',
+        'wsj', 'say', 'wall', 'street', 'journal', 'wall street',
+    }
     try:
-        client = MongoClient(uri, server_api=ServerApi('1'))
-        db = client['blackgold_db']
-        collection = db['Weekly_News']
-        
-        # Get all weekly summaries, sorted by date descending
-        summaries = list(collection.find(
-            {},
-            sort=[("Date", -1)]  # Sort by date descending to get latest first
-        ))
-        
-        client.close()
-        
-        if summaries:
-            return {
-                'summaries': summaries,
-                'success': True
-            }
-        else:
-            return {
-                'summaries': [],
-                'success': False,
-                'error': 'No weekly summaries found'
-            }
-            
-    except Exception as e:
-        return {
-            'summaries': [],
-            'success': False,
-            'error': str(e)
-        }
-
-# Function to format weekly summary content
-def format_weekly_summary_content(content):
-    """Format the weekly summary content for better display"""
-    if not content:
-        return ""
-    
-    # Split content into sections and format
-    lines = content.split('\n')
-    formatted_lines = []
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        
-        # Check if line is a header (contains colon and is relatively short)
-        if ':' in line and len(line) < 100:
-            # Check if it's a main section header
-            if any(keyword in line.lower() for keyword in ['overview', 'macroeconomic', 'supply', 'demand', 'key events', 'market implications']):
-                formatted_lines.append(f"### {line}")
-            else:
-                formatted_lines.append(f"**{line}**")
-        else:
-            formatted_lines.append(line)
-    
-    return '\n\n'.join(formatted_lines)
-
-# Load and display weekly summary
-st.markdown('<div class="section-header">📊 WEEKLY MARKET SUMMARY</div>', unsafe_allow_html=True)
-
-# Initialize session state for weekly summary navigation
-if 'weekly_summary_index' not in st.session_state:
-    st.session_state.weekly_summary_index = 0
-
-# Load all weekly summaries
-weekly_data = load_weekly_summaries()
+        stops = set(stopwords.words('english')).union(custom)
+    except Exception:
+        stops = custom
+    return WordNetLemmatizer(), stops
 
 
+lemmatizer, stop_words = setup_nlp()
 
-if weekly_data['success'] and weekly_data['summaries']:
-    summaries = weekly_data['summaries']
-    total_summaries = len(summaries)
-    current_index = st.session_state.weekly_summary_index
-    
-    # Ensure index is within bounds
-    if current_index >= total_summaries:
-        current_index = 0
-        st.session_state.weekly_summary_index = 0
-    
-    # Display current summary
-    current_summary = summaries[current_index]
-    formatted_content = format_weekly_summary_content(current_summary.get('WeeklyNews', ''))
-
-    # Optional: Add a dropdown for quick navigation to specific weeks
-    if total_summaries > 3:  # Only show dropdown if there are more than 3 summaries
-        # Create options for dropdown
-        dropdown_options = []
-        for i, summary in enumerate(summaries):
-            summary_date = summary.get('Date', datetime.now())
-            if isinstance(summary_date, str):
-                try:
-                    summary_date = datetime.strptime(summary_date, '%Y-%m-%d %H:%M:%S')
-                except:
-                    summary_date = datetime.now()
-            
-            date_str = summary_date.strftime('%B %d, %Y')
-            dropdown_options.append(f"Week of {date_str}")
-        
-        selected_week = st.selectbox(
-            "🗓️ Jump to specific week:",
-            options=dropdown_options,
-            index=current_index,
-            key="week_selector"
-        )
-        
-        # Update index based on selection
-        new_index = dropdown_options.index(selected_week)
-        if new_index != current_index:
-            st.session_state.weekly_summary_index = new_index
-            st.rerun()
-    
-    if formatted_content:
-        st.markdown(formatted_content)
-        
-        # Display date
-        summary_date = current_summary.get('Date', datetime.now())
-        if isinstance(summary_date, str):
-            try:
-                summary_date = datetime.strptime(summary_date, '%Y-%m-%d %H:%M:%S')
-            except:
-                summary_date = datetime.now()
-        
-        date_str = summary_date.strftime('%B %d, %Y')
-        st.markdown(f'<div class="weekly-summary-date">📅 Week of: {date_str}</div>', 
-                   unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="weekly-summary-loading">📝 Weekly summary content is being processed...</div>', 
-                   unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-
-
-else:
-    # Show error message
-    st.markdown('<div class="weekly-summary">', unsafe_allow_html=True)
-    
-    if weekly_data['success']:
-        st.markdown('<div class="weekly-summary-loading">📝 No weekly summaries available yet...</div>', 
-                   unsafe_allow_html=True)
-    else:
-        error_msg = weekly_data.get('error', 'Unknown error')
-        st.markdown(f'<div class="weekly-summary-error">⚠️ Unable to load weekly summaries: {error_msg}</div>', 
-                   unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-# Collection selector at the top
-st.markdown('<div class="collection-selector">', unsafe_allow_html=True)
-st.markdown('<h3 style="color: #FFD700; margin-bottom: 1rem;">🗄️ Select Data Source</h3>', unsafe_allow_html=True)
-
-
-collection_choice = st.selectbox(
-    "Choose Analysis Model:",
-    options=["Gemini Analysis","Groq Analysis"],
-    index=0,
-    help="The default model used is Gemini, a more complex model for sentiment analysis, though an alternative model (Groq) can also be used as a backup or to provide another perspective on market sentiment."
-)
-
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Load data from MongoDB based on selected collection
-@st.cache_data()
-def load_data(collection_name):
-    client = MongoClient(uri, server_api=ServerApi('1'))
-    if client is None:
-        return pd.DataFrame()
-    
-    try:
-        db = client['blackgold_db']
-        
-        # Choose collection based on selection
-        if collection_name == "Groq Analysis":
-            collection = db['rss_articles']
-        else:  # Gemini Analysis
-            collection = db['rss_articles_gemini']
-        
-        # Fetch all documents
-        cursor = collection.find({})
-        data = list(cursor)
-        
-        if not data:
-            return pd.DataFrame()
-        
-        # Convert to DataFrame
-        df = pd.DataFrame(data)
-        
-        # Clean and prepare data
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        
-        # Handle different sentiment column names
-        if 'Sentiment V2' in df.columns:
-            df['Sentiment'] = df['Sentiment V2']
-        elif 'Sentiment' not in df.columns:
-            df['Sentiment'] = 'neutral'
-        
-        # Ensure Category column exists
-        if 'Category' not in df.columns:
-            df['Category'] = 'General'
-        
-        # Ensure Reasoning column exists
-        if 'Reasoning' not in df.columns:
-            df['Reasoning'] = 'Analysis pending'
-        
-        # Filter out rows with invalid dates
-        df = df.dropna(subset=['Date'])
-        
-        return df
-        
-    except Exception as e:
-        st.error(f"Error loading data from MongoDB: {e}")
-        return pd.DataFrame()
-
-# Add refresh functionality
-def refresh_data():
-    """Clear cache and reload data"""
-    load_data.clear()
-    load_brent_data.clear()
-    load_weekly_summary.clear()
-    st.rerun()
-
-# Enhanced stop words
-try:
-    nltk.download('wordnet', quiet=True)
-    nltk.download('omw-1.4', quiet=True)
-    nltk.download('stopwords', quiet=True)
-except:
-    pass
-
-# Custom stop words
-custom_stop_words = set([
-    'oil', 'sentiment', 'prices', 'market', 'bullish', 'suggests',
-    'could', 'will', 'may', 'can', 'would', 'should', 'might', 'com',
-    'crude','today', 'oilprice','bloomberg','reuters','price','wsj', 'say', 'wall', 'street' , 'journal', 'wall street'
-])
-
-try:
-    stop_words = set(stopwords.words('english')).union(custom_stop_words)
-except:
-    stop_words = custom_stop_words
 
 def preprocess(text):
     try:
-        lemmatizer = WordNetLemmatizer()
-        text = str(text).lower()
-        tokens = re.findall(r'\b[a-z]+\b', text)
-        return ' '.join([lemmatizer.lemmatize(token) for token in tokens if token not in stop_words and len(token) > 2])
-    except:
+        tokens = re.findall(r'\b[a-z]+\b', str(text).lower())
+        return ' '.join(lemmatizer.lemmatize(t) for t in tokens if t not in stop_words and len(t) > 2)
+    except Exception:
         return str(text).lower()
 
-def get_top_phrases(text_series, stop_words, top_n=5, ngram_range=(1, 2)):
+
+def get_top_phrases(text_series, top_n=5, ngram_range=(1, 2)):
     try:
         cleaned = text_series.dropna().astype(str).apply(preprocess)
         if len(cleaned) == 0:
             return []
-        
-        vectorizer = CountVectorizer(stop_words=list(stop_words), ngram_range=ngram_range)
-        X = vectorizer.fit_transform(cleaned)
-        sum_words = X.sum(axis=0)
-        words_freq = [(word, int(sum_words[0, idx])) for word, idx in vectorizer.vocabulary_.items()]
-        sorted_words = sorted(words_freq, key=lambda x: x[1], reverse=True)
-        return sorted_words[:top_n]
-    except:
+        vec = CountVectorizer(stop_words=list(stop_words), ngram_range=ngram_range)
+        X = vec.fit_transform(cleaned)
+        sums = X.sum(axis=0)
+        freq = [(w, int(sums[0, i])) for w, i in vec.vocabulary_.items()]
+        return sorted(freq, key=lambda x: x[1], reverse=True)[:top_n]
+    except Exception:
         return []
 
-def plotly_donut(sentiments, title):
-    if len(sentiments) == 0:
-        # Create empty chart
-        fig = go.Figure(data=[go.Pie(labels=[], values=[])])
-        fig.update_layout(title_text=f"{title} - No Data", margin=dict(t=40, b=0, l=0, r=0), 
-                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        return fig
-    
-    counts = sentiments.value_counts()
-    labels = counts.index.tolist()
-    values = counts.tolist()
-
-    # Define custom colors
-    color_map = {
-        'bearish': 'darkred',
-        'bullish': 'darkgreen',
-        'neutral': 'gray'
-    }
-    colors = [color_map.get(label, 'lightblue') for label in labels]
-
-    fig = go.Figure(data=[go.Pie(
-        labels=labels,
-        values=values,
-        hole=0.5,
-        textinfo='label+percent',
-        hoverinfo='label+value',
-        marker=dict(colors=colors)
-    )])
-    fig.update_layout(title_text=title, margin=dict(t=40, b=0, l=0, r=0), 
-                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-    return fig
-
-def create_net_sentiment_chart(df, title="Net Bullish Sentiment Over Time"):
-    """Create a time series chart showing net bullish sentiment (bullish - bearish) by day"""
-    if len(df) == 0:
-        fig = go.Figure()
-        fig.update_layout(title=f"{title} - No Data", paper_bgcolor='rgba(0,0,0,0)', 
-                         plot_bgcolor='rgba(0,0,0,0)')
-        return fig
-    
-    # Group by date and sentiment, count occurrences
-    daily_sentiment = df.groupby([df['Date'].dt.date, 'Sentiment']).size().unstack(fill_value=0)
-    
-    # Calculate net sentiment (bullish - bearish)
-    if 'bullish' in daily_sentiment.columns and 'bearish' in daily_sentiment.columns:
-        daily_sentiment['net_sentiment'] = daily_sentiment['bullish'] - daily_sentiment['bearish']
-    elif 'bullish' in daily_sentiment.columns:
-        daily_sentiment['net_sentiment'] = daily_sentiment['bullish']
-    elif 'bearish' in daily_sentiment.columns:
-        daily_sentiment['net_sentiment'] = -daily_sentiment['bearish']
-    else:
-        daily_sentiment['net_sentiment'] = 0
-    
-    # Create colors based on positive/negative values
-    colors = ['darkgreen' if x >= 0 else 'darkred' for x in daily_sentiment['net_sentiment']]
-    
-    fig = go.Figure()
-    
-    # Add bar chart
-    fig.add_trace(go.Bar(
-        x=daily_sentiment.index,
-        y=daily_sentiment['net_sentiment'],
-        marker_color=colors,
-        name='Net Sentiment',
-        hovertemplate='<b>%{x}</b><br>Net Sentiment: %{y}<extra></extra>'
-    ))
-    
-    # Add horizontal line at y=0
-    fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-    
-    # Update layout
-    fig.update_layout(
-        title=title,
-        xaxis_title="Date",
-        yaxis_title="Net Bullish Sentiment (Bullish - Bearish)",
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='white',
-        showlegend=False,
-        margin=dict(t=40, b=40, l=40, r=40)
-    )
-    
-    # Style the axes
-    fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)')
-    fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)')
-    
-    return fig
-
-@st.cache_data()
+# ---------------------------------------------------------------- data access
+uri = st.secrets.db_credentials.url
 
 
+@st.cache_resource
+def get_client():
+    return MongoClient(uri, server_api=ServerApi('1'))
 
+
+@st.cache_data(ttl=300)
+def load_weekly_summaries():
+    try:
+        coll = get_client()['blackgold_db']['Weekly_News']
+        summaries = list(coll.find({}, sort=[("Date", -1)]))
+        if summaries:
+            return {'summaries': summaries, 'success': True}
+        return {'summaries': [], 'success': False, 'error': 'No weekly summaries found'}
+    except Exception as e:
+        return {'summaries': [], 'success': False, 'error': str(e)}
+
+
+@st.cache_data(ttl=600)
+def load_data(collection_name):
+    try:
+        db = get_client()['blackgold_db']
+        coll = db['rss_articles'] if collection_name == "Groq Analysis" else db['rss_articles_gemini']
+        data = list(coll.find({}))
+        if not data:
+            return pd.DataFrame()
+        df = pd.DataFrame(data)
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        if 'Sentiment V2' in df.columns:
+            df['Sentiment'] = df['Sentiment V2']
+        elif 'Sentiment' not in df.columns:
+            df['Sentiment'] = 'neutral'
+        if 'Category' not in df.columns:
+            df['Category'] = 'General'
+        if 'Reasoning' not in df.columns:
+            df['Reasoning'] = 'Analysis pending'
+        return df.dropna(subset=['Date'])
+    except Exception as e:
+        st.error(f"Error loading data from MongoDB: {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=900)
 def load_brent_data(start_date, end_date):
     try:
-        # Create a curl_cffi session that mimics Chrome
         session = requests.Session(impersonate="chrome")
-        # Fetch Brent crude oil data (ticker: BZ=F)
-        brent = yf.download('BZ=F', start=start_date, end=end_date, session=session)
+        brent = yf.download('BZ=F', start=start_date, end=end_date + timedelta(days=1),
+                            session=session, progress=False)
         if brent.empty:
             return pd.DataFrame()
-        
-        # Reset index to get date as column
+        if isinstance(brent.columns, pd.MultiIndex):
+            brent.columns = brent.columns.get_level_values(0)
         brent = brent.reset_index()
         brent['Date'] = pd.to_datetime(brent['Date'])
-        
         return brent
     except Exception as e:
-        print("Error:", e)
+        print("Brent error:", e)
         return pd.DataFrame()
 
-def create_brent_fig(brent_data):
-    # Handle empty dataframe
-    if brent_data.empty:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="⚠️ Connection to Yahoo Finance Failed. Please try again later",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=16, color="red")
-        )
-        fig.update_layout(
-            title="Brent Oil Closing Prices",
-            template="plotly_white"
-        )
-        return fig
 
-    # Normalize column names in case yf returns multi-index
-    brent_data.columns = [col[0] if isinstance(col, tuple) else col for col in brent_data.columns]
+def to_dt(value):
+    if isinstance(value, str):
+        try:
+            return datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        except Exception:
+            return datetime.now()
+    return value or datetime.now()
 
-    # Convert Date column to datetime
-    brent_data['Date'] = pd.to_datetime(brent_data['Date'])
 
-    # Create the figure
-    fig = go.Figure()
+def format_weekly_summary(content):
+    if not content:
+        return ""
+    keys = ['overview', 'macroeconomic', 'supply', 'demand', 'key events', 'market implications']
+    out = []
+    for line in content.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        if ':' in line and len(line) < 100:
+            out.append(f"### {line}" if any(k in line.lower() for k in keys) else f"**{line}**")
+        else:
+            out.append(line)
+    return '\n\n'.join(out)
 
-    fig.add_trace(go.Scatter(
-        x=brent_data['Date'],
-        y=brent_data['Close'],
-        mode='lines+markers',
-        name='Close Price',
-        line=dict(color='royalblue', width=2),
-        marker=dict(size=6)
-    ))
 
-    # Customize layout
-    fig.update_layout(
-        title='Brent Oil Closing Prices',
-        xaxis_title='Date',
-        yaxis_title='Close Price (USD)',
-        template='plotly_white'
-    )
-
-    return fig
-
-# Function to prepare CSV data for download
-def prepare_csv_data(df):
-    """Prepare dataframe for CSV download by cleaning and formatting"""
+def prepare_csv(df):
     if df.empty:
         return pd.DataFrame()
-    
-    # Create a copy to avoid modifying original data
-    csv_df = df.copy()
-    
-    # Remove MongoDB ObjectId column if it exists
-    if '_id' in csv_df.columns:
-        csv_df = csv_df.drop('_id', axis=1)
-    
-    # Format date column
-    if 'Date' in csv_df.columns:
-        csv_df['Date'] = csv_df['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    # Reorder columns for better readability
-    preferred_order = ['Date', 'Title', 'Category', 'Sentiment', 'Reasoning', 'Link']
-    
-    # Get existing columns in preferred order, then add any remaining columns
-    existing_preferred = [col for col in preferred_order if col in csv_df.columns]
-    remaining_cols = [col for col in csv_df.columns if col not in preferred_order]
-    
-    final_columns = existing_preferred + remaining_cols
-    csv_df = csv_df[final_columns]
-    
-    return csv_df
+    out = df.copy()
+    out = out.drop(columns=['_id'], errors='ignore')
+    out['Date'] = out['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    first = [c for c in ['Date', 'Title', 'Category', 'Sentiment', 'Reasoning', 'Link'] if c in out.columns]
+    return out[first + [c for c in out.columns if c not in first]]
 
-# Load data based on selected collection
-with st.spinner(f'🔄 Loading data from {collection_choice}...'):
+# ---------------------------------------------------------------- charts
+def style_fig(fig, height=None):
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family="Inter, sans-serif", color="#B9B6AE"),
+        margin=dict(t=20, b=30, l=10, r=10), height=height,
+        legend=dict(orientation="h", y=1.1, x=0),
+    )
+    fig.update_xaxes(gridcolor='rgba(255,255,255,.06)', zeroline=False)
+    fig.update_yaxes(gridcolor='rgba(255,255,255,.06)', zeroline=False)
+    return fig
+
+
+def net_score(series):
+    return int((series == 'bullish').sum() - (series == 'bearish').sum())
+
+
+def donut(sentiments):
+    fig = go.Figure()
+    if len(sentiments):
+        counts = sentiments.value_counts()
+        colors = {'bullish': GREEN, 'bearish': RED, 'neutral': GREY}
+        fig.add_trace(go.Pie(
+            labels=counts.index.tolist(), values=counts.tolist(), hole=0.74, sort=False,
+            marker=dict(colors=[colors.get(k, GOLD) for k in counts.index], line=dict(color='#0C0C0D', width=3)),
+            textinfo='none', hovertemplate='%{label}: %{value} (%{percent})<extra></extra>', showlegend=False))
+        net = net_score(sentiments)
+        fig.add_annotation(text=f"<b>{net:+d}</b>", showarrow=False,
+                           font=dict(size=26, color=GREEN if net >= 0 else RED, family="Sora, sans-serif"))
+    else:
+        fig.add_annotation(text="No data", showarrow=False, font=dict(size=14, color="#8E8B84"))
+    return style_fig(fig, height=190).update_layout(margin=dict(t=5, b=5, l=5, r=5))
+
+
+def combined_chart(df, brent, mode):
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    has_brent = not brent.empty
+    if mode != "Brent" and len(df):
+        score = df['Sentiment'].map({'bullish': 1, 'bearish': -1}).fillna(0)
+        net = score.groupby(df['Date'].dt.normalize()).sum()
+        fig.add_bar(x=net.index, y=net.values, name="Net sentiment", opacity=.8,
+                    marker_color=[GREEN if v >= 0 else RED for v in net.values], secondary_y=False)
+    if mode != "Sentiment" and has_brent:
+        fig.add_scatter(x=brent['Date'], y=brent['Close'], mode='lines', name="Brent close (USD)",
+                        line=dict(color=GOLD, width=2.4), secondary_y=True)
+    if mode != "Sentiment" and not has_brent:
+        fig.add_annotation(text="Connection to Yahoo Finance failed. Please try again later.",
+                           xref="paper", yref="paper", x=.5, y=.5, showarrow=False, font=dict(color=RED))
+    style_fig(fig, height=380)
+    fig.update_yaxes(title_text="Net sentiment (bullish minus bearish)", secondary_y=False,
+                     visible=mode != "Brent")
+    fig.update_yaxes(title_text="Brent close (USD)", secondary_y=True, showgrid=False,
+                     visible=mode != "Sentiment")
+    fig.update_layout(hovermode="x unified")
+    return fig
+
+# ---------------------------------------------------------------- header
+if 'wk' not in st.session_state:
+    st.session_state.wk = 0
+if 'feed_n' not in st.session_state:
+    st.session_state.feed_n = 25
+
+head_l, head_r = st.columns([3, 2])
+head_l.markdown('<div class="brand">Black Gold <span>Analytics</span></div>', unsafe_allow_html=True)
+with head_r:
+    collection_choice = st.radio(
+        "Analysis model", ["Gemini Analysis", "Groq Analysis"], horizontal=True, label_visibility="collapsed",
+        help="Gemini is the default, a more complex model for sentiment analysis. Groq is a backup that "
+             "gives another perspective on market sentiment.")
+
+hero_slot = st.container()  # filled once the data and filters are known
+
+# ---------------------------------------------------------------- weekly summary
+st.markdown('<div class="sec">Weekly market summary</div>'
+            '<div class="sec-sub">Written each week from the full news flow.</div>', unsafe_allow_html=True)
+
+weekly = load_weekly_summaries()
+if weekly['success'] and weekly['summaries']:
+    summaries = weekly['summaries']
+    total = len(summaries)
+    st.session_state.wk = min(st.session_state.wk, total - 1)
+
+    def step(delta):
+        st.session_state.wk = max(0, min(total - 1, st.session_state.wk + delta))
+
+    labels = [f"Week of {to_dt(s.get('Date')).strftime('%B %d, %Y')}" for s in summaries]
+    n1, n2, n3 = st.columns([1, 1, 4])
+    n1.button("Older week", on_click=step, args=(1,), use_container_width=True, disabled=st.session_state.wk >= total - 1)
+    n2.button("Newer week", on_click=step, args=(-1,), use_container_width=True, disabled=st.session_state.wk <= 0)
+    chosen = n3.selectbox("Jump to week", labels, index=st.session_state.wk, label_visibility="collapsed")
+    st.session_state.wk = labels.index(chosen)
+
+    current = summaries[st.session_state.wk]
+    body = format_weekly_summary(current.get('WeeklyNews', ''))
+    with st.container(border=True):
+        if body:
+            st.markdown(body)
+            st.markdown(f'<div class="week-date">{labels[st.session_state.wk]} · {st.session_state.wk + 1} of {total}</div>',
+                        unsafe_allow_html=True)
+        else:
+            st.caption("Weekly summary content is being processed.")
+elif weekly['success']:
+    st.info("No weekly summaries available yet.")
+else:
+    st.error(f"Unable to load weekly summaries: {weekly.get('error', 'Unknown error')}")
+
+# ---------------------------------------------------------------- load articles
+with st.spinner(f"Loading data from {collection_choice}..."):
     df = load_data(collection_choice)
 
-# Connection status
-if len(df) > 0:
-    st.markdown('<div class="connection-status connection-success">✅ Successfully connected to MongoDB</div>', 
-                unsafe_allow_html=True)
-else:
-    st.markdown('<div class="connection-status connection-error">❌ No data available or connection failed</div>', 
-                unsafe_allow_html=True)
+if df.empty:
+    st.markdown('<span class="status bad">No data available or connection failed</span>', unsafe_allow_html=True)
     st.stop()
 
-
-# Sidebar for controls
+# ---------------------------------------------------------------- sidebar filters
 with st.sidebar:
-    st.markdown('<h2 style="color: #FFD700;">⚙️ CONTROLS</h2>', unsafe_allow_html=True)
-    
-    # Add refresh button at the top of sidebar
-    if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
-        with st.spinner(f'🔄 Refreshing data from {collection_choice}...'):
-            load_data.clear()
-            st.rerun()
-    
+    st.markdown("## Filters")
+    if st.button("Refresh data", type="primary", use_container_width=True):
+        load_data.clear()
+        load_brent_data.clear()
+        load_weekly_summaries.clear()
+        st.rerun()
     st.markdown("---")
-    
-    # Date range picker - SEPARATE START AND END DATE
-    if len(df) > 0:
-        min_date = df['Date'].min().date()
-        max_date = df['Date'].max().date()
-        default_start = max(min_date, max_date - timedelta(days=90))
-        
-        st.markdown("**📅 Date Range**")
-        
-        # Separate start and end date inputs
-        start_date = st.date_input(
-            "Start Date:",
-            value=default_start,
-            min_value=min_date,
-            max_value=max_date,
-            key="start_date"
-        )
-        
-        end_date = st.date_input(
-            "End Date:",
-            value=max_date,
-            min_value=min_date,
-            max_value=max_date,
-            key="end_date"
-        )
-        
-        # Validate date range
-        if start_date > end_date:
-            st.error("Start date must be before end date!")
-            st.stop()
-        
-        st.markdown("---")
-        st.markdown("**🎯 Filters**")
-        
-        # Category filter
-        categories = sorted(df['Category'].dropna().unique())
-        selected_categories = st.multiselect(
-            "Select categories:",
-            categories,
-            default=categories,
-            label_visibility="collapsed"
-        )
-        
-        filter_sentiments = st.checkbox(
-            "Show only Bullish and Bearish sentiment", 
-            value=True
-        )
-        
-        st.markdown("---")
-        
-        # CSV Download Section
-        st.markdown("**📥 DOWNLOAD DATA**")
-        
-        # Apply same filtering logic for download
-        df_for_download = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
-        
-        if selected_categories:
-            df_for_download = df_for_download[df_for_download['Category'].isin(selected_categories)]
-        
-        if filter_sentiments:
-            df_for_download = df_for_download[df_for_download['Sentiment'].isin(['bullish', 'bearish'])]
-        
-        # Prepare CSV data
-        csv_data = prepare_csv_data(df_for_download)
-        
-        if not csv_data.empty:
-            csv_string = csv_data.to_csv(index=False)
-            
-            # Generate filename with date range
-            filename = f"blackgold_sentiment_{start_date.strftime('%Y%m%d')}_to_{end_date.strftime('%Y%m%d')}.csv"
-            
-            st.download_button(
-                label=f"📥 Download CSV ({len(csv_data)} records)",
-                data=csv_string,
-                file_name=filename,
-                mime="text/csv",
-                use_container_width=True,
-                key="download_csv"
-            )
-            
-            # Show download info
-            st.markdown(f"**Records to download:** {len(csv_data)}")
-            st.markdown(f"**Date range:** {start_date} to {end_date}")
-        else:
-            st.markdown("📝 No data available for download with current filters")
-            
+
+    min_date, max_date = df['Date'].min().date(), df['Date'].max().date()
+    default_start = max(min_date, max_date - timedelta(days=90))
+    start_date = st.date_input("Start date", value=default_start, min_value=min_date, max_value=max_date)
+    end_date = st.date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
+    if start_date > end_date:
+        st.error("Start date must be before end date.")
+        st.stop()
+
+    st.markdown("---")
+    categories = sorted(df['Category'].dropna().unique())
+    selected_categories = st.multiselect("Categories", categories, default=categories)
+    only_bb = st.checkbox("Show only bullish and bearish sentiment", value=True)
+
+# ---------------------------------------------------------------- filtering
+start_dt = pd.to_datetime(start_date)
+end_dt = pd.to_datetime(end_date) + timedelta(days=1) - timedelta(seconds=1)
+df_filtered = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)]
+if selected_categories:
+    df_filtered = df_filtered[df_filtered['Category'].isin(selected_categories)]
+if only_bb:
+    df_filtered = df_filtered[df_filtered['Sentiment'].isin(['bullish', 'bearish'])]
+
+now = datetime.now()
+df_3d = df_filtered[df_filtered['Date'] >= now - timedelta(days=3)]
+df_7d = df_filtered[df_filtered['Date'] >= now - timedelta(days=7)]
+df_30d = df_filtered[df_filtered['Date'] >= now - timedelta(days=30)]
+
+brent_data = load_brent_data(start_date, end_date)
+
+with st.sidebar:
+    st.markdown("---")
+    csv_df = prepare_csv(df_filtered)
+    if not csv_df.empty:
+        st.download_button(
+            f"Download CSV ({len(csv_df)} records)", data=csv_df.to_csv(index=False),
+            file_name=f"blackgold_sentiment_{start_date:%Y%m%d}_to_{end_date:%Y%m%d}.csv",
+            mime="text/csv", use_container_width=True)
+        st.caption(f"Date range: {start_date} to {end_date}")
     else:
-        st.markdown("No data available for filtering")
-        start_date = end_date = datetime.now().date()
-        selected_categories = []
-        filter_sentiments = True
+        st.caption("No data available for download with current filters.")
 
+# ---------------------------------------------------------------- hero
+if not brent_data.empty and 'Close' in brent_data.columns:
+    closes = brent_data['Close'].dropna()
+    last_close = f"{closes.iloc[-1]:.2f}"
+    delta = closes.iloc[-1] - closes.iloc[-2] if len(closes) > 1 else 0
+    brent_delta = f'<em style="color:{GREEN if delta >= 0 else RED}">{delta:+.2f}</em>'
+else:
+    last_close, brent_delta = "n/a", ""
 
-# Apply filtering
-if len(df) > 0:
-    # Date filter
+with hero_slot:
+    left, right = st.columns([6, 5])
+    left.markdown('<div class="hl">Oil market sentiment, scored from the news</div>'
+                  '<p class="hero-sub">Every headline is rated bullish or bearish by AI, '
+                  'then set against the Brent price.</p>', unsafe_allow_html=True)
+    right.markdown(
+        '<div class="stats">'
+        f'<div class="stat"><b>{last_close}{brent_delta}</b><span>Brent close, USD</span></div>'
+        f'<div class="stat"><b>{net_score(df_7d["Sentiment"]):+d}</b><span>Net sentiment, 7 days</span></div>'
+        f'<div class="stat"><b>{len(df_filtered)}</b><span>Headlines in range</span></div>'
+        '</div>', unsafe_allow_html=True)
 
-    start_datetime = pd.to_datetime(start_date)
-    end_datetime = pd.to_datetime(end_date) + timedelta(days=1) - timedelta(seconds=1)  # Include full day
-    
-    # Date filter with improved logic
-    df_filtered = df[(df['Date'] >= start_datetime) & (df['Date'] <= end_datetime)]
+# ---------------------------------------------------------------- sentiment overview
+st.markdown('<div class="sec">Sentiment overview</div>'
+            '<div class="sec-sub"><span class="status ok">Connected to MongoDB</span></div>', unsafe_allow_html=True)
 
-    # Debug information (optional - remove in production)
-    st.sidebar.markdown("**🔍 Debug Info:**")
-    st.sidebar.write(f"Start: {start_datetime}")
-    st.sidebar.write(f"End: {end_datetime}")
-    st.sidebar.write(f"Total records: {len(df)}")
-    st.sidebar.write(f"Filtered records: {len(df_filtered)}")
+cols = st.columns(4)
+for col, (data, period) in zip(cols, [(df_filtered, "Selected range"), (df_3d, "Last 3 days"),
+                                      (df_7d, "Last 7 days"), (df_30d, "Last 30 days")]):
+    with col:
+        with st.container(border=True):
+            st.markdown(f'<div class="ring-t">{period}</div>', unsafe_allow_html=True)
+            st.plotly_chart(donut(data['Sentiment']), use_container_width=True,
+                            config={'displayModeBar': False}, key=f"donut_{period}")
+            st.caption(f"{len(data)} headlines")
+            if len(data):
+                phrases = get_top_phrases(data['Title'])
+                st.markdown(''.join(f'<span class="chip">{html.escape(w)} ({c})</span>' for w, c in phrases),
+                            unsafe_allow_html=True)
 
-
-
-    # Category filter
-    if selected_categories:
-        df_filtered = df_filtered[df_filtered['Category'].isin(selected_categories)]
-    
-    # Sentiment filter
-    if filter_sentiments:
-        df_filtered = df_filtered[df_filtered['Sentiment'].isin(['bullish', 'bearish'])]
-    
-    # Create time-based datasets
-    now = datetime.now()
-    df_3d = df_filtered[df_filtered['Date'] >= now - timedelta(days=3)]
-    df_7d = df_filtered[df_filtered['Date'] >= now - timedelta(days=7)]
-    df_30d = df_filtered[df_filtered['Date'] >= now - timedelta(days=30)]
-
-    # Key metrics section
-    st.markdown('<div class="section-header">📊 SENTIMENT OVERVIEW</div>', unsafe_allow_html=True)
-    
-    # Create metrics row
-    col1, col2, col3, col4 = st.columns(4)
-    
-    datasets = [
-        (df_filtered, "Selected Range", col1),
-        (df_3d, "Last 3 Days", col2),
-        (df_7d, "Last 7 Days", col3),
-        (df_30d, "Last 30 Days", col4)
-    ]
-    
-    for data, period, col in datasets:
-        with col:
-            # Chart
-            fig = plotly_donut(data['Sentiment'], period)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Top words
-            if len(data) > 0:
-                top_words = get_top_phrases(data['Title'], stop_words)
-                if top_words:
-                    for word, count in top_words:
-                        st.markdown(f'<span class="word-item">{word} ({count})</span>', unsafe_allow_html=True)
-
-    # Time series chart section
-    st.markdown('<div class="section-header">📈 NET SENTIMENT TREND</div>', unsafe_allow_html=True)
-    
-    if len(df_filtered) > 0:
-        net_sentiment_fig = create_net_sentiment_chart(df_filtered, "Net Bullish Sentiment - Selected Date Range")
-        st.plotly_chart(net_sentiment_fig, use_container_width=True)
+# ---------------------------------------------------------------- charts
+st.markdown('<div class="sec">Net sentiment against Brent</div>'
+            '<div class="sec-sub">Daily bullish minus bearish headlines, set over the front-month Brent close.</div>',
+            unsafe_allow_html=True)
+mode = st.radio("Chart view", ["Combined", "Sentiment", "Brent"], horizontal=True, label_visibility="collapsed")
+with st.container(border=True):
+    if len(df_filtered) == 0 and mode != "Brent":
+        st.caption("No data available for the selected filters to display the trend chart.")
     else:
-        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters to display trend chart.</div>', unsafe_allow_html=True)
+        st.plotly_chart(combined_chart(df_filtered, brent_data, mode), use_container_width=True,
+                        config={'displayModeBar': False})
 
-    brent_data=load_brent_data(start_date,end_date)
-    st.plotly_chart(create_brent_fig(brent_data))
+# ---------------------------------------------------------------- news feed
+st.markdown('<div class="sec">News feed</div>', unsafe_allow_html=True)
+query = st.text_input("Search news articles", placeholder="Search titles, categories or analysis",
+                      label_visibility="collapsed")
 
+feed_df = df_filtered.sort_values('Date', ascending=False)
+if query:
+    q = query.lower()
+    mask = (feed_df['Title'].astype(str).str.lower().str.contains(q, regex=False, na=False)
+            | feed_df['Category'].astype(str).str.lower().str.contains(q, regex=False, na=False)
+            | feed_df['Reasoning'].astype(str).str.lower().str.contains(q, regex=False, na=False))
+    feed_df = feed_df[mask]
+st.markdown(f'<div class="sec-sub">{len(feed_df)} headlines in range'
+            f'{" matching “" + html.escape(query) + "”" if query else ""}</div>', unsafe_allow_html=True)
 
-    # News feed section
-    st.markdown('<div class="section-header">📰 SENTIMENT ANALYSIS FEED</div>', unsafe_allow_html=True)
+if feed_df.empty:
+    st.info("No articles found for these filters. Widen the date range or add categories.")
+else:
+    cards = []
+    for _, row in feed_df.head(st.session_state.feed_n).iterrows():
+        sent = str(row['Sentiment']).lower()
+        cls = f"s-{sent}" if sent in ('bullish', 'bearish') else "s-neutral"
+        link = row.get('Link')
+        read = (f'<a class="read" href="{html.escape(str(link))}" target="_blank">Read article</a>'
+                if pd.notna(link) and link else "")
+        cards.append(
+            f'<div class="news {cls}"><div class="n-date">{row["Date"]:%d %b %Y}</div>'
+            f'<div><div class="n-title">{html.escape(str(row["Title"]))}</div>'
+            f'<div class="n-why">{html.escape(str(row.get("Reasoning", "Analysis not available")))}</div></div>'
+            f'<div class="n-meta"><span class="pill {cls}">{sent.title()}</span>'
+            f'<span class="n-cat">{html.escape(str(row.get("Category", "General")))}</span>{read}</div></div>')
+    st.markdown(f'<div class="feed">{"".join(cards)}</div>', unsafe_allow_html=True)
+    if len(feed_df) > st.session_state.feed_n:
+        if st.button("Show more"):
+            st.session_state.feed_n += 25
+            st.rerun()
 
-    if len(df_filtered) == 0:
-        st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters.</div>', unsafe_allow_html=True)
-    else:
-        search_query = st.text_input(
-            "🔍 Search news articles:",
-            placeholder="Enter keywords to search titles, categories, or analysis...",
-            key="news_search"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Sort by date descending
-        display_df = df_filtered.sort_values('Date', ascending=False)
-        
-        # Apply search filter if search query is provided
-        if search_query:
-            search_query = search_query.lower()
-            mask = (
-                display_df['Title'].str.lower().str.contains(search_query, na=False) |
-                display_df['Category'].str.lower().str.contains(search_query, na=False) |
-                display_df['Reasoning'].str.lower().str.contains(search_query, na=False)
-            )
-            display_df = display_df[mask]
-            
-            # Show search results count
-            st.markdown(f'<div style="color: #FFD700; margin: 1rem 0; font-weight: 600;">🔍 Found {len(display_df)} articles matching "{search_query}"</div>', unsafe_allow_html=True)
-        
-        # Display filtered results
-        if len(display_df) == 0:
-            if search_query:
-                st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No articles found matching your search criteria.</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="text-align: center; color: #B0B0B0; padding: 2rem;">No data available for the selected filters.</div>', unsafe_allow_html=True)
-        else:
-            for _, row in display_df.iterrows():
-                sentiment_class = f"sentiment-{row['Sentiment']}" if row['Sentiment'] in ['bullish', 'bearish'] else 'sentiment-neutral'
-                
-                news_html = f'''
-                <div class="news-item">
-                    <div class="news-header">
-                        <div class="news-title">{row['Title']}</div>
-                        <div class="news-meta">
-                            <span class="category-badge">{row.get('Category', 'General')}</span>
-                            <span class="sentiment-badge {sentiment_class}">{row['Sentiment'].upper()}</span>
-                            <div class="news-date">📅 {row['Date'].strftime('%m/%d/%y')}</div>
-                '''
-                
-                if pd.notna(row.get('Link', '')):
-                    news_html += f'<a href="{row["Link"]}" class="news-link" target="_blank">🔗 Read</a>'
-                
-                news_html += f'''
-                        </div>
-                    </div>
-                    <div class="reasoning-text">
-                        <span class="reasoning-label">💡 Analysis:</span>
-                        {row.get('Reasoning', 'Analysis not available')}
-                    </div>
-                </div>
-                '''
-                
-                st.markdown(news_html, unsafe_allow_html=True)
-
-# Footer
-st.markdown("---")
-st.markdown(
-    '<div style="text-align: center; color: #B0B0B0; padding: 1rem;">© 2024 Black Gold Analytics - Premium Market Intelligence</div>',
-    unsafe_allow_html=True
-)
+st.markdown('<div class="foot">© 2026 Black Gold Analytics · Premium Market Intelligence</div>', unsafe_allow_html=True)
