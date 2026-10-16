@@ -41,8 +41,8 @@ header[data-testid="stHeader"]{background:transparent}
 [data-testid="stSidebar"] h2{font-family:Sora,sans-serif;font-size:1.1rem}
 
 /* brand + hero */
-.brand{font:700 1.35rem Sora,sans-serif;letter-spacing:-.01em;padding:.4rem 0}
-.brand::before{content:"";display:inline-block;width:15px;height:15px;margin-right:12px;border-radius:50% 0 50% 50%;
+.brand{font:700 clamp(2rem,4.5vw,3.2rem) Sora,sans-serif;letter-spacing:-.02em;padding:.4rem 0 .2rem}
+.brand::before{content:"";display:inline-block;width:.5em;height:.5em;margin-right:.4em;border-radius:50% 0 50% 50%;
 transform:rotate(-45deg);background:var(--grad)}
 .brand span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hl{font:700 clamp(2rem,4vw,3.4rem)/1.05 Sora,sans-serif;letter-spacing:-.03em;margin-top:2.2rem}
@@ -311,13 +311,15 @@ if 'wk' not in st.session_state:
 if 'feed_n' not in st.session_state:
     st.session_state.feed_n = 25
 
-head_l, head_r = st.columns([3, 2])
-head_l.markdown('<div class="brand">Black Gold <span>Analytics</span></div>', unsafe_allow_html=True)
-with head_r:
+st.markdown('<div class="brand">Black Gold <span>Analytics</span></div>', unsafe_allow_html=True)
+
+with st.sidebar:
+    st.markdown("## Analysis model")
     collection_choice = st.radio(
-        "Analysis model", ["Gemini Analysis", "Groq Analysis"], horizontal=True, label_visibility="collapsed",
+        "Analysis model", ["Gemini Analysis", "Groq Analysis"], label_visibility="collapsed",
         help="Gemini is the default, a more complex model for sentiment analysis. Groq is a backup that "
              "gives another perspective on market sentiment.")
+    st.markdown("---")
 
 hero_slot = st.container()  # filled once the data and filters are known
 
@@ -395,10 +397,11 @@ if selected_categories:
 if only_bb:
     df_filtered = df_filtered[df_filtered['Sentiment'].isin(['bullish', 'bearish'])]
 
-now = datetime.now()
-df_3d = df_filtered[df_filtered['Date'] >= now - timedelta(days=3)]
-df_7d = df_filtered[df_filtered['Date'] >= now - timedelta(days=7)]
-df_30d = df_filtered[df_filtered['Date'] >= now - timedelta(days=30)]
+# Windows count back from the end of the selected range (not from today), so they
+# still show data when the newest articles are a few days old.
+df_3d = df_filtered[df_filtered['Date'] > end_dt - timedelta(days=3)]
+df_7d = df_filtered[df_filtered['Date'] > end_dt - timedelta(days=7)]
+df_30d = df_filtered[df_filtered['Date'] > end_dt - timedelta(days=30)]
 
 brent_data = load_brent_data(start_date, end_date)
 
@@ -424,11 +427,7 @@ else:
     last_close, brent_delta = "n/a", ""
 
 with hero_slot:
-    left, right = st.columns([6, 5])
-    left.markdown('<div class="hl">Oil market sentiment, scored from the news</div>'
-                  '<p class="hero-sub">Every headline is rated bullish or bearish by AI, '
-                  'then set against the Brent price.</p>', unsafe_allow_html=True)
-    right.markdown(
+    st.markdown(
         '<div class="stats">'
         f'<div class="stat"><b>{last_close}{brent_delta}</b><span>Brent close, USD</span></div>'
         f'<div class="stat"><b>{net_score(df_7d["Sentiment"]):+d}</b><span>Net sentiment, 7 days</span></div>'
