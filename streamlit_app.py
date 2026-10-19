@@ -185,10 +185,10 @@ def load_weekly_summaries():
 
 
 @st.cache_data(ttl=600)
-def load_data(collection_name):
+def load_data():
     try:
         db = get_client()['blackgold_db']
-        coll = db['rss_articles'] if collection_name == "Groq Analysis" else db['rss_articles_gemini']
+        coll = db['rss_articles_gemini']
         data = list(coll.find({}))
         if not data:
             return pd.DataFrame()
@@ -393,28 +393,6 @@ def event_card(row):
             f'<div class="n-meta"><span class="pill {cls}">{s.title()}</span>{outlets(row)}{a}</div></div></div>')
 
 
-def model_compare(df_g, df_q):
-    """Match the same articles across the Gemini and Groq collections (by link, else title)."""
-    def prep(d, sfx):
-        k = d['Link'] if 'Link' in d.columns else d['Title']
-        k = k.where(k.notna() & (k.astype(str) != ''), d['Title']).astype(str).str.strip().str.lower()
-        cols = ['Sentiment', 'Reasoning'] + (['Date', 'Title', 'Category'] if sfx == 'g' else [])
-        out = d[cols].rename(columns={'Sentiment': f'Sentiment_{sfx}', 'Reasoning': f'Reasoning_{sfx}'})
-        out['key'] = k.values
-        return out.drop_duplicates('key')
-    return prep(df_g, 'g').merge(prep(df_q, 'q'), on='key')
-
-
-def disagree_html(r):
-    def pill(name, s):
-        return f'<span class="pill s-{s if s in ("bullish", "bearish") else "neutral"}">{name}: {s.title()}</span>'
-    return (f'<div class="dis"><div class="n-title">{html.escape(str(r["Title"]))}</div>'
-            f'<div style="margin:.4rem 0">{pill("Gemini", r["Sentiment_g"])} {pill("Groq", r["Sentiment_q"])} '
-            f'<span class="n-cat" style="display:inline">{r["Date"]:%d %b %Y} · {html.escape(str(r["Category"]))}</span></div>'
-            f'<div class="n-why"><b>Gemini:</b> {html.escape(str(r["Reasoning_g"]))}</div>'
-            f'<div class="n-why"><b>Groq:</b> {html.escape(str(r["Reasoning_q"]))}</div></div>')
-
-
 KEY_TERMS = ('opec', 'supply', 'demand', 'inventor', 'stock', 'china', 'fed', 'rate', 'sanction', 'output',
              'cut', 'forecast', 'tariff', 'refin', 'export', 'import', 'recession', 'dollar', 'geopolit')
 
@@ -428,8 +406,8 @@ def takeaways(text, n=4):
     return [sents[i] for i in sorted(top)]
 
 
-def build_digest(sig, drv, df, last_close, model, alerts):
-    lines = [f"Black Gold Analytics digest, {datetime.now():%d %b %Y}", f"Model: {model}", f"Brent close: {last_close}"]
+def build_digest(sig, drv, df, last_close, alerts):
+    lines = [f"Black Gold Analytics digest, {datetime.now():%d %b %Y}", f"Brent close: {last_close}"]
     if sig is not None and sig['roll'].notna().any():
         r = sig['roll'].dropna().iloc[-1]
         zt = f", z-score {sig['z'].dropna().iloc[-1]:+.2f}" if sig['z'].notna().any() else ""
@@ -533,7 +511,6 @@ def _float(v, default):
 
 defaults = {
     'wk': 0, 'feed_n': 25,
-    'model': "Groq Analysis" if qp.get('model') == 'groq' else "Gemini Analysis",
     'rng': qp.get('range') if qp.get('range') in ('7D', '30D', '90D', 'All', 'Custom') else '90D',
     'only_bb': qp.get('bb', '1') == '1',
     'dedupe': qp.get('dedupe', '1') == '1',
@@ -548,19 +525,11 @@ if _iso(qp.get('start')) and _iso(qp.get('end')):
 
 st.markdown('<div class="brand">Black Gold <span>Analytics</span></div>', unsafe_allow_html=True)
 
-with st.sidebar:
-    st.markdown("## Analysis model")
-    collection_choice = st.radio(
-        "Analysis model", ["Gemini Analysis", "Groq Analysis"], key="model", label_visibility="collapsed",
-        help="Gemini is the default, a more complex model for sentiment analysis. Groq is a backup that "
-             "gives another perspective on market sentiment.")
-    st.markdown("---")
-
 hero_slot = st.container()  # filled once the data and filters are known
 alert_slot = st.container()
 
-with st.spinner(f"Loading data from {collection_choice}..."):
-    df = load_data(collection_choice)
+with st.spinner("Loading data..."):
+    df = load_data()
 
 if df.empty:
     st.markdown('<span class="status bad">No data available or connection failed</span>', unsafe_allow_html=True)
@@ -839,43 +808,6 @@ else:
         st.caption("Gold bars compare today's score with the return k days later. Grey bars show price moves that came "
                    "before the sentiment. The 5 and 20-day figures use overlapping windows, so treat them as indicative.")
 
-# ---- model agreement
-st.markdown('<div class="sec">Model agreement</div>'
-            '<div class="sec-sub">Gemini and Groq scoring the same articles. The disagreements are the ones worth reading.</div>',
-            unsafe_allow_html=True)
-mc = model_compare(load_data("Gemini Analysis"), load_data("Groq Analysis"))
-mc = mc[(mc['Date'] >= start_dt) & (mc['Date'] <= end_dt)]
-if selected_categories:
-    mc = mc[mc['Category'].isin(selected_categories)]
-if mc.empty:
-    st.info("No articles could be matched across the two models for this range.")
-else:
-    gs, qs = (mc[f'Sentiment_{k}'].map(SCORE).fillna(0) for k in ('g', 'q'))
-    agree = (mc['Sentiment_g'] == mc['Sentiment_q']).mean()
-    for col, (val, label) in zip(st.columns(4), [
-            (f"{gs.mean():+.2f}", "Gemini score"), (f"{qs.mean():+.2f}", "Groq score"),
-            (f"{((gs + qs) / 2).mean():+.2f}", "Consensus score"), (f"{agree:.0%}", "Agreement rate")]):
-        with col, st.container(border=True):
-            st.markdown(f'<div class="kpi">{val}</div><div class="kpi-l">{label} · {len(mc)} articles</div>',
-                        unsafe_allow_html=True)
-    left, right = st.columns([2, 3])
-    order = ['bullish', 'neutral', 'bearish']
-    ct = pd.crosstab(mc['Sentiment_g'], mc['Sentiment_q']).reindex(index=order, columns=order, fill_value=0)
-    heat = go.Figure(go.Heatmap(z=ct.values, x=[o.title() for o in order], y=[o.title() for o in order],
-                                text=ct.values, texttemplate="%{text}", showscale=False,
-                                colorscale=[[0, '#0C0C0D'], [1, GOLD]], xgap=3, ygap=3))
-    style_fig(heat, height=300).update_layout(xaxis_title="Groq", yaxis_title="Gemini",
-                                               yaxis=dict(autorange="reversed"))
-    with left, st.container(border=True):
-        st.plotly_chart(heat, use_container_width=True, config={'displayModeBar': False})
-    dis = mc[mc['Sentiment_g'] != mc['Sentiment_q']].sort_values('Date', ascending=False)
-    with right:
-        st.caption(f"{len(dis)} disagreements, newest first")
-        if len(dis):
-            st.markdown('<div class="feed" style="max-height:300px;overflow:auto">'
-                        + ''.join(disagree_html(r) for _, r in dis.head(12).iterrows()) + '</div>',
-                        unsafe_allow_html=True)
-
 # ---- category drivers
 st.markdown('<div class="sec">What is driving sentiment</div>'
             '<div class="sec-sub">Net bullish minus bearish headlines by category: the last 7 days of the range '
@@ -895,7 +827,7 @@ else:
 
 # ---- digest
 with st.expander("Daily digest and notifications"):
-    digest = build_digest(sig, drv, df_filtered, last_close, collection_choice, alerts)
+    digest = build_digest(sig, drv, df_filtered, last_close, alerts)
     st.code(digest, language=None)
     d1, d2 = st.columns(2)
     d1.download_button("Download digest", digest, file_name=f"blackgold_digest_{datetime.now():%Y%m%d}.txt",
@@ -949,7 +881,7 @@ else:
             st.session_state.feed_n += 25
             st.rerun()
 
-params = {"model": "groq" if "Groq" in collection_choice else "gemini", "range": st.session_state.rng,
+params = {"range": st.session_state.rng,
           "bb": "1" if only_bb else "0", "dedupe": "1" if st.session_state.dedupe else "0",
           "cmp": "1" if st.session_state.cmp else "0", "thr": f"{thr:.1f}"}
 if st.session_state.rng == "Custom":
